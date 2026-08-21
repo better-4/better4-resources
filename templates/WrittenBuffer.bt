@@ -1,0 +1,498 @@
+//------------------------------------------------
+// WriteToBuffer struct
+// Called from Script::WriteToBuffer
+//
+// (Also used in SendStructure, how devious!)
+//------------------------------------------------
+
+local uint ReachedUnknownWBData = 0;
+struct WrittenItem;
+
+// These get masked onto the symbol type in CScriptStructure::WriteToBuffer if
+// the following name checksum matches one in the lookup table. (Defined in compress.q)
+
+#define MASK_8_BIT_NAME_LOOKUP (1<<7)
+#define MASK_16_BIT_NAME_LOOKUP (1<<6)
+
+enum ESymbolType
+{
+    ESYMBOLTYPE_NONE=0,
+    ESYMBOLTYPE_INTEGER,
+    ESYMBOLTYPE_FLOAT,
+    ESYMBOLTYPE_STRING,
+    ESYMBOLTYPE_WIDESTRING,
+    ESYMBOLTYPE_PAIR,
+    ESYMBOLTYPE_VECTOR,
+    ESYMBOLTYPE_QSCRIPT,
+    ESYMBOLTYPE_CFUNCTION,
+    ESYMBOLTYPE_MEMBERFUNCTION,
+    ESYMBOLTYPE_STRUCTURE,
+
+    ESYMBOLTYPE_STRUCTUREPOINTER,
+    ESYMBOLTYPE_ARRAY,
+    ESYMBOLTYPE_NAME,
+
+    // Memory related for WriteToBuffer
+	ESYMBOLTYPE_INTEGER_ONE_BYTE,
+	ESYMBOLTYPE_INTEGER_TWO_BYTES,
+	ESYMBOLTYPE_UNSIGNED_INTEGER_ONE_BYTE,
+	ESYMBOLTYPE_UNSIGNED_INTEGER_TWO_BYTES,
+	ESYMBOLTYPE_ZERO_INTEGER,
+	ESYMBOLTYPE_ZERO_FLOAT,
+
+};
+
+string ItemTypeToString(uint value)
+{
+    switch (value)
+    {
+        case ESYMBOLTYPE_INTEGER:
+            return "Integer";
+            break;
+
+        case ESYMBOLTYPE_FLOAT:
+            return "Float";
+            break;
+
+        case ESYMBOLTYPE_STRING:
+            return "String";
+            break;
+
+        case ESYMBOLTYPE_WIDESTRING:
+            return "WString";
+            break;
+
+        case ESYMBOLTYPE_PAIR:
+            return "Pair";
+            break;
+
+        case ESYMBOLTYPE_VECTOR:
+            return "Vector";
+            break;
+
+        case ESYMBOLTYPE_NAME:
+            return "Name";
+            break;
+            
+        case ESYMBOLTYPE_ARRAY:
+            return "Array";
+            break;
+            
+        case ESYMBOLTYPE_STRUCTURE:
+            return "Structure";
+            break;
+
+        default:
+            return Str("Unk_%d", value);
+            break;
+    }
+}
+
+// ---------------------------
+
+typedef struct
+{
+    uint32 value;
+} AnyData;
+
+// ---------------------------
+
+typedef struct
+{
+    ubyte value;
+} UIntData1Byte <read=ReadUIntData1Byte>;
+
+typedef struct
+{
+    ushort value;
+} UIntData2Byte <read=ReadUIntData2Byte>;
+
+typedef struct
+{
+    byte value;
+} IntData1Byte <read=ReadIntData1Byte>;
+
+typedef struct
+{
+    short value;
+} IntData2Byte <read=ReadIntData2Byte>;
+// ---------------------------
+
+typedef struct
+{
+    uint value;
+} IntegerData <read=ReadIntegerData>;
+
+// ---------------------------
+
+typedef struct
+{
+    float value;
+} FloatData <read=ReadFloatData>;
+
+// ---------------------------
+
+typedef struct
+{
+    QBKey value;
+} NameData <read=ReadNameData>;
+
+// ---------------------------
+
+typedef struct
+{
+    string value;
+} StringData<read=ReadStringData>;
+
+// ---------------------------
+
+typedef struct
+{
+    wstring value;
+} WideStringData<read=ReadWideStringData>;
+
+// ---------------------------
+
+typedef struct
+{
+    Vec2 value;
+} PairData <read=ReadPairData>;
+
+// ---------------------------
+
+typedef struct
+{
+    Vec3 value;
+} VectorData <read=ReadVectorData>;
+
+typedef struct
+{
+    local ubyte testByte = ReadByte();
+
+    while (testByte != 0x00)
+    {
+        WrittenItem subItem;
+        testByte = ReadByte();
+    }
+} StructureData;
+
+// ---------------------------
+
+typedef struct
+{
+    wstring data;
+} ArrayWideString <read=Str("%s", this.data)>;
+
+struct ArrayData;
+
+typedef struct
+{
+    ubyte itemType;
+    ushort itemCount;
+
+    switch (itemType)
+    {
+        case 0:
+            break;
+            
+        case ESYMBOLTYPE_INTEGER:
+            int values[itemCount];
+            break;
+        
+        case ESYMBOLTYPE_FLOAT:
+            float values[itemCount];
+            break;
+            
+        case ESYMBOLTYPE_WIDESTRING:
+            ArrayWideString values[itemCount] <optimize=false>;
+            break;
+            
+        case ESYMBOLTYPE_NAME:
+            QBKey values[itemCount];
+            break;
+            
+        case ESYMBOLTYPE_STRUCTURE:
+            WrittenItem values[itemCount] <optimize=false>;
+            break;
+            
+        case ESYMBOLTYPE_ARRAY:
+            ArrayData values[itemCount] <optimize=false>;
+            break;
+            
+        default:
+            Printf("Unknown array item type %d. (0x%x)\n", itemType, itemType);
+            ReachedUnknownWBData = 1;
+            break;
+    }
+
+} ArrayData <read=ReadArrayData>;
+
+// ---------------------------
+
+string ReadUIntData1Byte(UIntData1Byte &dat)
+{
+    return Str("%d",dat.value);
+}
+
+string ReadUIntData2Byte(UIntData2Byte &dat)
+{
+    return Str("%d",dat.value);
+}
+
+string ReadIntData1Byte(IntData1Byte &dat)
+{
+    return Str("%d",dat.value);
+}
+
+string ReadIntData2Byte(IntData2Byte &dat)
+{
+    return Str("%d",dat.value);
+}
+
+string ReadIntegerData(IntegerData &dat)
+{
+    return Str("%d", dat.value);
+}
+
+string ReadFloatData(FloatData &dat)
+{
+    return Str("%f", dat.value);
+}
+
+string ReadNameData(NameData &dat)
+{
+    return Str("%s", ReadQBKey(dat.value));
+}
+
+string ReadPairData(PairData &dat)
+{
+    return Str("%s", ReadVec2(dat.value));
+}
+
+string ReadVectorData(VectorData &dat)
+{
+    return Str("%s", ReadVec3(dat.value));
+}
+
+string ReadStringData(StringData &dat)
+{
+    return Str("%s", dat.value);
+}
+
+string ReadWideStringData(WideStringData &dat)
+{
+    return Str("%s", dat.value);
+}
+
+string ReadArrayData(ArrayData &dat)
+{
+    return Str("Array (%s), %d item(s)", ItemTypeToString(dat.itemType), dat.itemCount);
+}
+
+// ---------------------------
+
+typedef struct
+{
+    local ubyte finalItemType;
+    local ubyte unknown = 0;
+    local ubyte compressedName = 0;
+    local uint itemStart = FTell();
+    
+    ubyte itemType;
+        
+    finalItemType = itemType;
+
+    if (finalItemType & MASK_8_BIT_NAME_LOOKUP)
+    {
+        ubyte nameIndex;
+        compressedName = 1;
+    }
+    else if (finalItemType & MASK_16_BIT_NAME_LOOKUP)
+    {
+        ushort nameIndex;
+        compressedName = 1;
+    }
+    else
+        QBKey id;
+
+    finalItemType = ((uint) finalItemType) & ~(MASK_8_BIT_NAME_LOOKUP | MASK_16_BIT_NAME_LOOKUP);
+
+    // Get the name checksum, which may be stored as an index
+    // into a table of checksums to save space.
+
+    switch (finalItemType)
+    {
+        case ESYMBOLTYPE_INTEGER_ONE_BYTE:
+            IntData1Byte data;
+            break;
+            
+        case ESYMBOLTYPE_INTEGER_TWO_BYTES:
+            IntData2Byte data;
+            break;
+            
+        case ESYMBOLTYPE_UNSIGNED_INTEGER_ONE_BYTE:
+            UIntData1Byte data;
+            break;
+            
+        case ESYMBOLTYPE_UNSIGNED_INTEGER_TWO_BYTES:
+            UIntData2Byte data;
+            break;
+
+        case ESYMBOLTYPE_INTEGER:
+            IntegerData data;
+            break;
+
+        case ESYMBOLTYPE_FLOAT:
+            FloatData data;
+            break;
+    
+        case ESYMBOLTYPE_NAME:
+            NameData data;
+            break;
+
+        case ESYMBOLTYPE_STRING:
+            StringData data;
+            break;
+
+        case ESYMBOLTYPE_WIDESTRING:
+            WideStringData data;
+            break;
+
+        case ESYMBOLTYPE_PAIR:
+            PairData data;
+            break;
+
+        case ESYMBOLTYPE_VECTOR:
+            VectorData data;
+            break;
+
+        case ESYMBOLTYPE_STRUCTURE:
+            WrittenItem data;
+            break;
+
+        case ESYMBOLTYPE_ARRAY:
+            ArrayData data;
+            break;
+
+        case ESYMBOLTYPE_ZERO_INTEGER:
+            break;
+
+        case ESYMBOLTYPE_ZERO_FLOAT:
+            break;
+
+        default:
+            unknown = 1;
+            ReachedUnknownWBData = 1;
+            Printf("Encountered unknown item type at %d: %d (0x%02x)\n", itemStart, finalItemType, finalItemType);
+            break;
+    }
+} WrittenItemData <read=ReadWrittenItemData>;
+
+typedef struct
+{
+    local ubyte testItemType;
+    
+    while (!ReachedUnknownWBData)
+    {
+        testItemType = ReadByte();
+        
+        if (testItemType == 0)
+        {
+            FSeek(FTell() + 1);
+            break;
+        }
+            
+        WrittenItemData child;
+        
+        if (child.unknown)
+            break;
+    }
+} WrittenItem;
+
+string ReadWrittenItemData(WrittenItemData &item)
+{
+    local string datRead;
+
+    if (item.unknown)
+        return "???";
+
+    switch (item.finalItemType)
+    {
+        case ESYMBOLTYPE_INTEGER_ONE_BYTE:
+            datRead = ReadIntData1Byte(item.data);
+            break;
+            
+        case ESYMBOLTYPE_INTEGER_TWO_BYTES:
+            datRead = ReadIntData2Byte(item.data);
+            break;
+            
+        case ESYMBOLTYPE_UNSIGNED_INTEGER_ONE_BYTE:
+            datRead = ReadUIntData1Byte(item.data);
+            break;
+            
+        case ESYMBOLTYPE_UNSIGNED_INTEGER_TWO_BYTES:
+            datRead = ReadUIntData2Byte(item.data);
+            break;
+
+        case ESYMBOLTYPE_INTEGER:
+            datRead = ReadIntegerData(item.data);
+            break;
+
+        case ESYMBOLTYPE_FLOAT:
+            datRead = ReadFloatData(item.data);
+            break;
+
+        case ESYMBOLTYPE_NAME:
+            datRead = ReadNameData(item.data);
+            break;
+
+        case ESYMBOLTYPE_STRING:
+            datRead = ReadStringData(item.data);
+            break;
+
+        case ESYMBOLTYPE_WIDESTRING:
+            datRead = ReadWideStringData(item.data);
+            break;
+
+        case ESYMBOLTYPE_PAIR:
+            datRead = ReadPairData(item.data);
+            break;
+
+        case ESYMBOLTYPE_VECTOR:
+            datRead = ReadVectorData(item.data);
+            break;
+
+        case ESYMBOLTYPE_ZERO_INTEGER:
+            datRead = "0";
+            break;
+
+        case ESYMBOLTYPE_ZERO_FLOAT:
+            datRead = "0.0";
+            break;
+
+        case ESYMBOLTYPE_ARRAY:
+            datRead = ReadArrayData(item.data);
+            break;
+            
+        case ESYMBOLTYPE_STRUCTURE:
+            datRead = "Structure";
+            break;
+
+        default:
+            datRead = Str("Unknown Item Type: %d", item.finalItemType);
+            break;
+    }
+
+    if (item.compressedName)
+        return Str("[%d] Compressed Name %d: %s", item.finalItemType, item.nameIndex, datRead);
+    else
+        return Str("[%d] %s: %s", item.finalItemType, ReadQBKey(item.id), datRead);
+
+}
+
+// ----------------------------------
+
+typedef struct
+{
+    WrittenItem item <bgcolor=0xCCCCCC>;
+} WrittenBuffer;

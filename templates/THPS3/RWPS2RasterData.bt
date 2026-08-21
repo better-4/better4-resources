@@ -1,0 +1,12 @@
+//------------------------------------------------
+// PS2 raster data.
+//------------------------------------------------
+
+local uint PendingRasterDataWidth = 0;
+local uint PendingRasterDataHeight = 0;
+
+typedef struct
+{
+    ubyte data[PendingRasterDataWidth * PendingRasterDataHeight];
+    ubyte paletteMaybe[512];
+} RWPS2RasterData;

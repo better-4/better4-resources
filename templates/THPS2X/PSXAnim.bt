@@ -1,0 +1,199 @@
+//------------------------------------------------
+// Data related to PSX animations
+//------------------------------------------------
+
+local ubyte CurrentAnimSubtype;
+local uint CurrentAnimChunkStart;
+
+// Animation used in TH2 skater select seems to be anim 144 in sk2anim.psx
+
+typedef struct (uint num_frames)
+{
+    ubyte compression_byte;
+    
+    local uint old_off = FTell();
+    
+    local ubyte divisor = (compression_byte >> 4) + 1;
+    local ubyte compression_type = (compression_byte & 0xF);
+    local ubyte compression_subtype;
+    
+    local int sub = num_frames - 1;
+    local int div_a;
+    local int div_b;
+    
+    if (divisor <= 1)
+    {
+        div_a = 0;
+        div_b = 0;
+    }
+    else
+    {
+        sub /= divisor;
+        
+        div_b = num_frames - divisor * sub - 1;
+        div_a = div_b;
+    }
+    
+    switch (compression_type)
+    {
+        case 0:
+            compression_subtype = 0;
+            break;
+            
+        case 1:
+            compression_subtype = 1;
+            break;
+            
+        case 2:
+            compression_subtype = 1;
+            break;
+            
+        case 3:
+            compression_subtype = 1;
+            break;
+            
+        case 4:
+            compression_subtype = 1;
+            break;
+            
+        case 5:
+            compression_subtype = 1;
+            break;
+            
+        case 6:
+            compression_subtype = 1;
+            break;
+            
+        case 7:
+            compression_subtype = 1;
+            break;
+            
+        case 8:
+            compression_subtype = 1;
+            break;
+            
+        case 9:
+            compression_subtype = 1;
+            break;
+            
+        case 10:
+            compression_subtype = 1;
+            break;
+            
+        case 11:
+            compression_subtype = 1;
+            break;
+            
+        case 12:
+            compression_subtype = 1;
+            break;
+            
+        case 13:
+            compression_subtype = 1;
+            break;
+            
+        case 14:
+            compression_subtype = 2;
+            break;
+            
+        case 15:
+            compression_subtype = 3;
+            break;
+            
+        default:
+            return;
+    }
+    
+    switch (compression_subtype)
+    {
+        case 1:
+            /*
+            local ubyte masky = compression_type + 1;
+            
+            // ------
+            
+            local ubyte fd_a = ReadUByte();
+            FSkip(1);
+            local ubyte fd_b = ReadUByte();
+            FSkip(1);
+            local ubyte fd_c = ReadUByte();
+            FSkip(1);
+            local ubyte fd_d = ReadUByte();
+            FSkip(-3);
+            
+            // ------
+            
+            local ubyte dat_a = fd_a;
+            local ubyte dat_b = fd_b;
+            
+            local uint mask_b = 0;
+            local uint masky_b = masky;
+            
+            local uint mask_com;
+            
+            if (sub > 0)
+            {
+                local uint subber = 32 - masky;
+                local uint calculated;
+                
+                for (local int s=0; s<sub; s++)
+                {
+                    calculated = (fd_c | ((fd_b | (fd_a << 8)) << 8)) << (mask_b + 8) >> subber;
+                    mask_com = mask_b + masky;
+                    
+                    FSkip(mask_com >> 3);
+                }
+            }
+            */
+            
+            break;
+            
+        // 3 is dummy frame, has no data
+        case 3:
+            break;
+    }
+    
+    // FSeek(old_off);
+} AnimFrame <read=Str("comp subtype: %d, divisor: %d, div_a: %d, div_b: %d", compression_subtype, divisor, div_a, div_b)>;
+
+typedef struct
+{
+    uint data_offset;
+    uint frame_count;
+    
+    if (CurrentAnimSubtype != 2)
+        return;
+        
+    local uint old_off = FTell();
+
+    FSeek(CurrentAnimChunkStart + data_offset);
+    
+    AnimFrame frame(frame_count);
+    
+    FSeek(old_off);
+} AnimInfo <read=Str("%d frames @%d, ", frame_count, data_offset)>;
+
+typedef struct (ubyte magic)
+{
+    CurrentAnimChunkStart = FTell();
+    
+    local ubyte subtype = (magic - 0x2A);
+    CurrentAnimSubtype = subtype;
+    
+    uint num_anims;
+    
+    if (num_anims)
+        AnimInfo info[num_anims] <optimize=false>;
+        
+    if (subtype != 2)
+    {
+        Printf("Unknown animation subtype %d.\n", subtype);
+        return;
+    }
+        
+} AnimFile <read=ReadAnimFile>;
+
+string ReadAnimFile(AnimFile &file)
+{
+    return Str("Anim subtype %d, (12 * objcount) >> 1 is %d", file.subtype, (12 * CurrentPSXObjectCount) >> 1);
+}

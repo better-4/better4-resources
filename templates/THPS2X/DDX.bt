@@ -1,0 +1,41 @@
+//------------------------------------------------
+// THPS2X .DDX file - Contains textures
+//------------------------------------------------
+
+#include "../Common.bt"
+
+#define CL_TEXENTRY_OFFSET          0xFFAAAA
+#define CL_TEXENTRY_SIZE            0xEE9999
+#define CL_TEXENTRY_NAME            0xDD8888
+#define CL_TEXENTRY_DATA            0xDDFFDD
+
+local uint TextureStartPos = 0;
+
+typedef struct
+{
+    RelativeOffset offset(TextureStartPos) <bgcolor=CL_TEXENTRY_OFFSET>;
+    uint size <bgcolor=CL_TEXENTRY_SIZE>;
+    char name[256] <bgcolor=CL_TEXENTRY_NAME>;
+    
+    if (size)
+    {
+        local uint old_off = FTell();
+        FSeek(AbsOffset(offset));
+        ubyte data[size] <bgcolor=CL_TEXENTRY_DATA>;
+        FSeek(old_off);
+    }
+} DDXTextureEntry <read=Str("%d, %d bytes: %s", AbsOffset(offset), size, name)>;
+
+typedef struct
+{
+    uint version <bgcolor=CL_SINGLEVALUE>;
+    uint fileSize <bgcolor=CL_SINGLEVALUE, comment="Size of whole file.">;
+    RelativeOffset texturesStart(0) <bgcolor=CL_POINTER, comment="Start position of textures.">;
+    TextureStartPos = AbsOffset(texturesStart);
+    uint textureCount <bgcolor=CL_SINGLEVALUE>;
+    
+    DDXTextureEntry tex[textureCount] <optimize=false>;
+} DDXFile;
+
+LittleEndian();
+DDXFile file;

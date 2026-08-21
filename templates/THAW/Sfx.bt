@@ -1,0 +1,25 @@
+//------------------------------------------------
+// THAW .sfx file
+//------------------------------------------------
+
+#include "../Common.bt"
+
+typedef struct
+{
+    short wFormatTag;
+    unsigned short nChannels;
+    unsigned long nSamplesPerSec;
+    unsigned long nAvgBytesPerSec;
+    unsigned short nBlockAlign;
+    unsigned short wBitsPerSample;
+    unsigned short cbSize;
+} tWAVEFORMATEX;
+
+typedef struct
+{
+    tWAVEFORMATEX format <bgcolor=CL_SINGLEVALUE>;
+    ubyte null[128 - sizeof(tWAVEFORMATEX)] <hidden=true, bgcolor=CL_PADDING>;
+} THAWSFXFile;
+
+LittleEndian();
+THAWSFXFile sfx_file;

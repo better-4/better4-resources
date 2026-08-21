@@ -1,0 +1,297 @@
+//------------------------------------------------
+// Renderware section.
+//------------------------------------------------
+
+#define PLATFORM_XBOX                   5
+#define PLATFORM_PC                     8
+
+local uint CurrentRWPlat = 0;
+local uint CurrentWorldFlags = 0;
+
+struct RWSection;
+
+enum RWSectionType
+{
+    ST_Nothing = 0x00,
+    ST_Struct = 0x01,
+    ST_String = 0x02,
+    ST_Extension = 0x03,
+    ST_Camera = 0x05,
+    ST_Texture = 0x06,
+    ST_Material = 0x07,
+    ST_MaterialList = 0x08,
+    ST_AtomicSection = 0x09,
+    ST_PlaneSection = 0x0A,
+    ST_World = 0x0B,
+    ST_Spline = 0x0C,
+    ST_Matrix = 0x0D,
+    ST_FrameList = 0x0E,
+    ST_Geometry = 0x0F,
+    ST_Clump = 0x10,
+    ST_Atomic = 0x14,
+    ST_Raster = 0x15,
+    ST_TextureDictionary = 0x16,
+    ST_GeometryList = 0x1A,
+    ST_MorphPLG = 0x0105,
+    ST_SkinPLG = 0x0116,
+    ST_CollisionPLG = 0x011D,
+    ST_MaterialEffectsPLG = 0x0120,
+    ST_BinMeshPLG = 0x050E,
+    ST_THPS3_PluginExtension = 0x294AF01,
+    ST_THPS3_UnknownExtension = 0x294AF02,
+    ST_THPS3_WorldExtension = 0x294AF04,
+    
+    // INTERNAL
+    ST_Raster_PS2Data_Raster = 0xFFFFFFF1,
+    ST_Raster_PS2Data_RasterData = 0xFFFFFFF2,
+    ST_Raster_PS2Data_Image = 0xFFFFFFF3,
+};
+
+local uint LastAtomicTriangleCount = 0;
+local uint LastAtomicVertexCount = 0;
+local uint LastFrameListCount = 0;
+
+#include "RWCommon.bt"
+#include "RWWorld.bt"
+#include "RWTexture.bt"
+#include "RWMaterial.bt"
+#include "RWMaterialList.bt"
+#include "RWFrameList.bt"
+#include "RWGeometryList.bt"
+#include "RWGeometry.bt"
+#include "RWAtomic.bt"
+#include "RWPlaneSection.bt"
+#include "RWAtomicSection.bt"
+#include "RWBinMeshPLG.bt"
+#include "RWSkinPLG.bt"
+#include "RWTextureDictionary.bt"
+#include "RWRaster.bt"
+#include "RWPS2RasterData.bt"Ú
+#include "RWTHPS3AtomicInfo.bt"
+#include "RWTHPS3ClumpInfo.bt"
+#include "RWTHPS3MaterialInfo.bt"
+#include "RWTHPS3WorldExtension.bt"
+
+#define CL_SECT_TYPE                    0x66EEFF
+#define CL_SECT_SIZE                    0x55DDEE
+#define CL_SECT_STAMP                   0x44CCDD
+#define CL_SECT_STRING                  0x33BBCC
+
+typedef struct (RWSectionType parent_type)
+{ 
+    RWSectionType section_type <bgcolor=CL_SECT_TYPE>;
+    uint size <bgcolor=CL_SECT_SIZE>;
+    uint id_stamp <bgcolor=CL_SECT_STAMP>;
+    
+    local uint start_pos = FTell();
+    
+    switch (section_type)
+    {
+        case ST_World:
+            while (FTell() < start_pos + size)
+            {
+                RWSection child(section_type);
+            }
+            break;
+            
+        case ST_Nothing:
+            break;
+            
+        case ST_String:
+            char data[size] <bgcolor=CL_SECT_STRING>;
+            break;
+            
+        case ST_MaterialList:
+        case ST_PlaneSection:
+        case ST_GeometryList:
+        case ST_Geometry:
+            RWSection data(section_type);
+            break;
+            
+        case ST_Atomic:
+        case ST_FrameList:
+            RWSection data(section_type);
+            RWSection extension(section_type);
+            break;
+            
+        case ST_TextureDictionary:
+            while (!FEof())
+                RWSection data(section_type);
+            break;
+            
+        case ST_Clump:
+        case ST_Material:  
+            while (FTell() < start_pos + size)
+            {
+                RWSection child(section_type);
+            }
+            
+            if (section_type == ST_Clump)
+                return;
+            break;
+            
+        case ST_Raster:
+            RWSection data(section_type);
+            RWSection extension(section_type);
+            
+            // Lazy hack for XBox: Struct size is not what it should be.
+            // This prevents us from returning to an earlier point.
+            return;
+            break;
+
+        case ST_Texture:
+            RWSection texture_info(section_type);
+            RWSection texture_name(section_type);
+            RWSection texture_alpha_name(section_type);
+            RWSection extension(section_type);
+            break;
+            
+        case ST_BinMeshPLG:
+            RWBinMeshPLG data;
+            break;
+            
+        case ST_SkinPLG:
+            RWSkinPLG data;
+            break;
+            
+        case ST_AtomicSection:
+            RWSection data(section_type);
+            RWSection extension(section_type);
+            break;
+            
+        case ST_Extension:
+            while (FTell() < start_pos + size)
+                RWSection plugin_data(parent_type);
+            break;
+        
+        case ST_THPS3_WorldExtension:
+            RWTHPS3WorldExtension ext;
+            return;
+            break;
+            
+        case ST_THPS3_PluginExtension:
+            switch (parent_type)
+            {
+                // Material extension
+                case ST_Material:
+                    RWTHPS3MaterialInfo info;
+                    break;
+                    
+                // Atomic extension
+                case ST_AtomicSection:
+                    RWTHPS3AtomicInfo info;
+                    break;
+                    
+                // Clump extension
+                case ST_Clump:
+                    RWTHPS3ClumpInfo info;
+                    break;
+            }
+            break;
+            
+        // Struct data depends on parent type.
+        case ST_Struct:
+            switch (parent_type)
+            {
+                case ST_MaterialList:
+                    RWMaterialList data;
+                    break;
+                    
+                case ST_World:
+                    RWWorld data;
+                    break;
+                    
+                case ST_Material:
+                    RWMaterial data;
+                    break;
+                    
+                case ST_Texture:
+                    RWTexture data;
+                    break;
+                    
+                case ST_Atomic:
+                    RWAtomic data;
+                    break;
+                    
+                case ST_PlaneSection:
+                    int bsp[6] <bgcolor=0xAAAAAA>;
+                    break;
+                    
+                case ST_TextureDictionary:
+                    RWTextureDictionary data;
+                    break;
+                    
+                case ST_Clump:
+                    int data <bgcolor=CL_SINGLEVALUE>;
+                    LastFrameListCount = data;
+                    break;
+                    
+                case ST_FrameList:
+                    RWFrameList data;
+                    break;
+                    
+                case ST_GeometryList:
+                    RWGeometryList data;
+                    break;
+                    
+                case ST_Geometry:
+                    RWGeometry data;
+                    break;
+                    
+                case ST_Raster:
+                    RWRaster data;
+                    
+                    // Lazy XBox hack for TXX (See above)
+                    return;
+                    break;
+                    
+                case ST_AtomicSection:
+                    RWAtomicSection data;
+                    break;
+                    
+                case ST_Raster_PS2Data_Raster:
+                    RWSection data(ST_Raster_PS2Data_RasterData);
+                    return;
+                    break;
+                    
+                case ST_Raster_PS2Data_RasterData:
+                    RasterFormat_PS2 data;
+                    break;
+                    
+                case ST_Raster_PS2Data_Image:
+                    RWPS2RasterData data;
+                    break;
+            }
+            break;
+            
+        default:
+            Printf("Unknown RW section type 0x%02x at %d.\n", section_type, FTell());
+            break;
+    }
+    
+    local int gap = (start_pos + size) - FTell();
+    
+    /*
+    if (gap < 0)
+        Printf("OVERFLOW IN %s @ %d: %d\n", EnumToString(section_type), start_pos, (start_pos + size) - FTell());
+    else if (gap)
+        Printf("%d bytes left for %s @ %d\n", (start_pos + size) - FTell(), EnumToString(section_type), start_pos);
+    */
+    
+    if (section_type != ST_PlaneSection)
+        FSeek(start_pos + size);
+} RWSection <read=ReadRWSection>;
+
+string ReadRWSection(RWSection& sect)
+{
+    local string extraData = "";
+    
+    switch (sect.section_type)
+    {
+        case ST_String:
+            extraData = Str("(%s)", sect.data);
+            break;
+    }
+    
+    return Str("0x%02x: %s, %d bytes %s", sect.section_type, EnumToString(sect.section_type), sect.size, extraData);
+}

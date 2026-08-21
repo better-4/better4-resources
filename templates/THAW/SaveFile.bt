@@ -1,0 +1,56 @@
+//------------------------------------------------
+// Save file of some sort. For THAW.
+//------------------------------------------------
+
+#include "../Common.bt"
+#include "../WrittenBuffer.bt"
+
+enum SaveFileVersion
+{
+    VERSION_OPTIONSANDPROS = 61,
+    VERSION_NETWORKSETTINGS = 10,
+    VERSION_CAS = 23,
+    VERSION_CAT = 2,
+    VERSION_PARK = 7,
+    VERSION_CREATEDGOALS = 8,
+    VERSION_CREATEDGRAPHIC = 1
+};
+
+typedef struct
+{
+    QBKey mChecksum <bgcolor=CL_CHECKSUM, comment="Checksum of some data">;
+    QBKey mSummaryInfoChecksum <bgcolor=CL_CHECKSUM, comment="Checksum of summary info ONLY">;
+    uint mSummaryInfoSize <bgcolor=CL_SINGLEVALUE, comment="Size of summary info">;
+    uint mDataSize <bgcolor=CL_SINGLEVALUE, comment="Total data size. Header, summary info, and data. (header_and_structures_size)">;
+    SaveFileVersion mVersion <bgcolor=CL_SINGLEVALUE, comment="Always the save file version.">;
+} Mem_SMcFileHeader <read=Str("%s: [%s] [%s] Summary: %d bytes, Data: %d bytes", EnumToString(mVersion), ReadQBKey(mChecksum), ReadQBKey(mSummaryInfoChecksum), mSummaryInfoSize, mDataSize)>;
+
+typedef struct
+{
+    Mem_SMcFileHeader header;
+    
+    local uint data_end = header.mDataSize;
+    local uint data_start = FTell();
+    WrittenBuffer summary_info;
+    
+    FSeek(data_start + header.mSummaryInfoSize);
+    
+    if (FTell() >= header.mDataSize)
+    {
+        if (header.mVersion == VERSION_OPTIONSANDPROS)
+            Printf("Save file might be corrupted. No data seems to be here.\n");
+    }
+    else
+    {
+        while (FTell() < data_end && !ReachedUnknownWBData)
+        {
+            WrittenItem data;
+        }
+    }
+    
+    FSeek(header.mDataSize);
+    ubyte padding[FileSize() - FTell()] <bgcolor=0xBBBBBB, hidden=true>;
+} SaveFile;
+
+LittleEndian();
+SaveFile file;

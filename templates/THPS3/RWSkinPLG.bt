@@ -1,0 +1,48 @@
+//------------------------------------------------
+// Skin PLG data. Contains weights.
+//------------------------------------------------
+
+#define CL_SKINPLG_VALUE                0xFFAAFF
+#define CL_SKINPLG_INDEX                0xEE99EE
+#define CL_SKINPLG_WEIGHT               0xDD88DD
+
+typedef struct
+{
+    ubyte bones[4];
+} RWSkinIndices <read=Str("[%d, %d, %d, %d]", bones[0], bones[1], bones[2], bones[3])>;
+
+typedef struct
+{
+    float weights[4];
+} RWSkinValues <read=Str("%f, %f, %f, %f", weights[0], weights[1], weights[2], weights[3])>;
+
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+    float w;
+} RWTransform;
+
+typedef struct
+{
+    int boneIndexA;
+    int boneIndexB;
+    int boneUnkIndex;
+    RWTransform transform[4];
+} RWBone;
+
+typedef struct
+{
+    uint bone_count <bgcolor=CL_SKINPLG_VALUE>;
+    uint weight_count <bgcolor=CL_SKINPLG_VALUE>;
+    
+    if (weight_count && bone_count)
+    {
+        RWSkinIndices weight_indices[weight_count] <bgcolor=CL_SKINPLG_INDEX>;
+        RWSkinValues weight_values[weight_count] <bgcolor=CL_SKINPLG_WEIGHT>;
+    }
+    
+    if (bone_count)
+        RWBone bones[bone_count] <bgcolor=0xAAAAAA>;
+} RWSkinPLG;

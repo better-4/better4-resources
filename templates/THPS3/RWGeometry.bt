@@ -1,0 +1,159 @@
+//------------------------------------------------
+// Geometry data.
+//------------------------------------------------
+
+#define CL_GEOMETRYVALUE            0xDDFF66
+#define CL_GEOMETRYCOLOR            0xCCEE55
+#define CL_GEOMETRYUV               0xAACC33
+#define CL_GEOMETRYFACE             0xAAFF77
+#define CL_GEOMETRYVERTEX           0xAADD77
+#define CL_GEOMETRYNORMAL           0xAACC66
+#define CL_GEOMETRYVC               0xAABB55
+
+#define rpGEOMETRYTRISTRIP                  0x00000001
+#define rpGEOMETRYPOSITIONS                 0x00000002
+#define rpGEOMETRYTEXTURED                  0x00000004
+#define rpGEOMETRYPRELIT                    0x00000008
+#define rpGEOMETRYNORMALS                   0x00000010
+#define rpGEOMETRYLIGHT                     0x00000020
+#define rpGEOMETRYMODULATEMATERIALCOLOR     0x00000040
+#define rpGEOMETRYTEXTURED2                 0x00000080
+#define rpGEOMETRYNATIVE                    0x01000000
+
+typedef struct
+{
+    float u;
+    float v;
+} RwTexCoords <read=Str("(%f, %f)", u, v)>;
+
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+    float radius;
+} RwSphere <read=Str("(%f, %f, %f), %f", x, y, z, radius)>;
+
+typedef struct
+{
+    ushort vertex2;
+    ushort vertex1;
+    ushort material_id;
+    ushort vertex3;
+} RpTriangle <read=Str("Mat %d: [%d, %d, %d]", material_id, vertex1, vertex2, vertex3)>;
+
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+} RwV3D <read=Str("(%f, %f, %f)", x, y, z)>;
+
+typedef struct
+{
+    uint value;
+} RWGeometryFormat <read=ReadRWGeometryFormat>;
+
+string ReadRWGeometryFormat(RWGeometryFormat &fmt)
+{
+    local string s;
+    local string sep = "";
+    
+    if (fmt.value & rpGEOMETRYTRISTRIP)
+    {
+        s = Str("%s%srpGEOMETRYTRISTRIP", s, sep);
+        sep = " | ";
+    }
+    
+    if (fmt.value & rpGEOMETRYPOSITIONS)
+    {
+        s = Str("%s%srpGEOMETRYPOSITIONS", s, sep);
+        sep = " | ";
+    }
+    
+    if (fmt.value & rpGEOMETRYTEXTURED)
+    {
+        s = Str("%s%srpGEOMETRYTEXTURED", s, sep);
+        sep = " | ";
+    }
+    
+    if (fmt.value & rpGEOMETRYPRELIT)
+    {
+        s = Str("%s%srpGEOMETRYPRELIT", s, sep);
+        sep = " | ";
+    }
+    
+    if (fmt.value & rpGEOMETRYNORMALS)
+    {
+        s = Str("%s%srpGEOMETRYNORMALS", s, sep);
+        sep = " | ";
+    }
+    
+    if (fmt.value & rpGEOMETRYLIGHT)
+    {
+        s = Str("%s%srpGEOMETRYLIGHT", s, sep);
+        sep = " | ";
+    }
+    
+    if (fmt.value & rpGEOMETRYMODULATEMATERIALCOLOR)
+    {
+        s = Str("%s%srpGEOMETRYMODULATEMATERIALCOLOR", s, sep);
+        sep = " | ";
+    }
+    
+    if (fmt.value & rpGEOMETRYTEXTURED2)
+    {
+        s = Str("%s%srpGEOMETRYTEXTURED2", s, sep);
+        sep = " | ";
+    }
+    
+    if (fmt.value & rpGEOMETRYNATIVE)
+    {
+        s = Str("%s%srpGEOMETRYNATIVE", s, sep);
+        sep = " | ";
+    }
+    
+    return s;
+}
+
+typedef struct
+{
+    RWGeometryFormat format <bgcolor=CL_GEOMETRYVALUE, comment="Flags">;
+  
+    uint face_count <bgcolor=CL_GEOMETRYVALUE>;
+    uint vertex_count <bgcolor=CL_GEOMETRYVALUE>;
+    uint frame_count <bgcolor=CL_GEOMETRYVALUE>;
+    
+    float ambient_color <bgcolor=CL_GEOMETRYCOLOR>;
+    float diffuse_color <bgcolor=CL_GEOMETRYCOLOR>;
+    float specular_color <bgcolor=CL_GEOMETRYCOLOR>;
+    
+    if (format.value & rpGEOMETRYNATIVE)
+    {
+        Printf("Native geometry not supported.\n");
+        return;
+    }
+    
+    // Vertex color
+    if (vertex_count && (format.value & rpGEOMETRYPRELIT))
+        RwRGBA prelitcolor[vertex_count] <bgcolor=CL_GEOMETRYVC>;
+        
+    if (vertex_count && (format.value & rpGEOMETRYTEXTURED))
+        RwTexCoords uvs[vertex_count] <bgcolor=CL_GEOMETRYUV>;
+        
+    if (face_count)
+        RpTriangle triangles[face_count] <bgcolor=CL_GEOMETRYFACE>;
+        
+    RwSphere boundingSphere <bgcolor=CL_GEOMETRYVALUE>;
+    
+    int has_vertices <bgcolor=CL_GEOMETRYVALUE>;
+    int has_normals <bgcolor=CL_GEOMETRYVALUE>;
+    
+    if (has_vertices)
+        RwV3D vertices[vertex_count] <bgcolor=CL_GEOMETRYVERTEX>;
+    if (has_normals)
+        RwV3D normals[vertex_count] <bgcolor=CL_GEOMETRYNORMAL>;
+        
+    RWSection material_list(ST_GeometryList);
+    RWSection extension(ST_GeometryList);
+} RWGeometry;

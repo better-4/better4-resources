@@ -1,0 +1,8 @@
+//------------------------------------------------
+// FNT4 (THP8 / THPG / GH) .fnt file.
+//------------------------------------------------
+
+#include "Font.bt"
+
+FntFileVersion = FONT_FNT4;
+FntFile font_file;

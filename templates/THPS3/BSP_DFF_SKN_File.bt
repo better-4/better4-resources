@@ -1,0 +1,15 @@
+//------------------------------------------------
+// RenderWare .BSP / .DFF / .SKN template. For THPS3.
+//------------------------------------------------
+
+#include "../Common.bt"
+#include "RWSection.bt"
+
+typedef struct
+{
+    while (!FEof())
+        RWSection data(0);
+} RWFile;
+
+LittleEndian();
+RWFile file;

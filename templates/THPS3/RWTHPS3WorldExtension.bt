@@ -1,0 +1,61 @@
+//------------------------------------------------
+// THPS3 world extension.
+//------------------------------------------------
+
+#define CL_PARTICLEVALUE_X          0xEECCAA
+#define CL_PARTICLEVALUE_Y          0xDDBB99 
+#define CL_PARTICLEVALUE_Z          0xCCAA88
+#define CL_PARTICLEVALUE_W          0xBB9977
+#define CL_PARTICLEVALUE            0xEECCAA
+#define CL_PARTICLENAME             0xFFDDBB
+
+typedef struct
+{
+    RwVec4 startPosInternal <comment="3DS Max pos? Unused.", bgcolor=CL_PARTICLEVALUE>;
+    RwVec4 junkVector <bgcolor=CL_PARTICLEVALUE>;
+    float floatA[7] <bgcolor=CL_PARTICLEVALUE>;
+    
+    RwVec4 startPos <comment="Real pos.", bgcolor=CL_PARTICLEVALUE>;
+    RwVec3 startBounds <comment="Particles can spawn anywhere in this box.", bgcolor=CL_PARTICLEVALUE>;
+    uint maxParticles <comment="Maximum amount of particles to spawn.", bgcolor=CL_PARTICLEVALUE>;
+    float emitRate <comment="Particle emit rate. Lower is faster.", bgcolor=CL_PARTICLEVALUE>;
+    float emitUnk <bgcolor=CL_PARTICLEVALUE>;
+    
+    RwRGBA startColor <bgcolor=CL_PARTICLEVALUE>;
+    RwRGBA endColor <bgcolor=CL_PARTICLEVALUE>;
+    
+    float xScale <comment="Horizontal scale. Applied on top of size.", bgcolor=CL_PARTICLEVALUE>;
+    float xyzScale <comment="Overall scale on all axes.", bgcolor=CL_PARTICLEVALUE>;
+    
+    RwVec3 acceleration <comment="Acceleration. Higher Y value drags down.", bgcolor=CL_PARTICLEVALUE>;
+    
+    float endSizeMult <comment="size * endSizeMult = endSize", bgcolor=CL_PARTICLEVALUE>; 
+    float zVelocity <comment="Z velocity of particle, straight up", bgcolor=CL_PARTICLEVALUE>;
+    float unkA <bgcolor=CL_PARTICLEVALUE, comment="Seemingly no effect">;
+    float unkB <bgcolor=CL_PARTICLEVALUE, comment="Seemingly no effect">;
+    
+    ubyte hasTexture <bgcolor=CL_PARTICLEVALUE>;
+    RWSection texture(ST_THPS3_WorldExtension);
+
+    TH3Alpha4 alpha <bgcolor=CL_PARTICLEVALUE, comment="Numbered alphas are additive by default.">;
+    uint unknown <bgcolor=CL_PARTICLEVALUE, comment="Usually 0">;
+    
+    uint checksum <bgcolor=CL_PARTICLENAME>;
+    ubyte unkByte <bgcolor=CL_PARTICLEVALUE>;
+} ParticleSystem <read=ReadParticleSystem>;
+
+string ReadParticleSystem(ParticleSystem &sys)
+{
+    return Str("0x%08x: %s", sys.checksum, sys.texture.texture_name.data);
+}
+
+typedef struct
+{
+    uint versionMaybe;
+    uint numParticleSystems;
+    
+    if (numParticleSystems)
+        ParticleSystem particleSystems[numParticleSystems] <optimize=false>;
+        
+    RWSection plugin(ST_THPS3_WorldExtension);
+} RWTHPS3WorldExtension;

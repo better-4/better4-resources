@@ -1,0 +1,117 @@
+For using the weight transfer blend on models not in x-pose you need to line the imported model up with the CAS one as best as you can
+then rotate the legs on the Z-axis (by .2 left and -.2 right) transfer the weights like normal, then before making the skeleton the parent to the imported model
+you need to apply the pose as rest pose, then carry on (the original CAS will lose transformations but it shouldnt be needed anymore anyways) 
+then before exporting, pose the model back to how it was before (dont apply it as rest this time)
+export and use yoshi's tool
+
+
+
+Bone 0 is the root bone, this bone basically does nothing but dont mess with it
+
+Bone 1 is the pelvis bone 
+
+Bone 2 is the spine
+
+bone 3 is the upper torso
+
+Bone 4 is the neck
+
+bone 5 is the head bone
+
+bone 6 is the hair bone
+
+Bone 7 is the jaw bone
+
+Bone 8 is the boob bone
+
+Bone 9 is the left shoulder
+
+Bone 10 is the left upperarm
+
+Bone 11 is the left forearm
+
+Bone 12 is the left wrist
+
+Bone 13 is the left hand
+
+Bone 14 is the left thumb
+
+Bone 15 is the bottom of the index left finger
+
+Bone 16 is the top of the index left finger
+
+Bone 17 is the bottom of other 3 left fingers
+
+Bone 18 is the top of other 3 left fingers
+
+Bone 19 
+
+Bone 20 is the left short sleeve bone?
+
+Bone 21 is the right shoulder
+
+Bone 22 is the right upperarm
+
+Bone 23 is the right forearm
+
+Bone 24 is the right wrist
+
+Bone 25 is the right hand
+
+Bone 26 is the right thumb
+
+Bone 27 is the bottom of the right index finger
+
+Bone 28 is the top of the right index finger
+
+Bone 29 is the bottom of other right 3 fingers
+
+Bone 30 is the top of the other right 3 fingers
+
+Bone 31 is 
+
+Bone 32 is the right short sleeve bone?
+
+Bone 33 is 
+
+Bone 34 is the right thigh bone
+
+Bone 35 is the right calf bone
+
+Bone 36 is the right foot bone
+
+Bone 37 is the right toe bone
+
+Bone 38 is 
+
+Bone 39 is 
+
+Bone 40 is bottom shirt physics bone?
+
+Bone 41 is the left thigh bone
+
+Bone 42 is
+
+Bone 43 is the left calf bone
+
+Bone 44 is the left foot bone
+
+Bone 45 is the left toe bone
+ 
+Bone 46 is 
+
+Bone 47 is the main deck bone
+
+Bone 48 is the front trucks
+
+Bone 49 is the back trucks
+
+Bone 50 is 
+
+Bone 51 is 
+
+Bone 52 is 
+
+Bone 53 is 
+
+Bone 54 is 

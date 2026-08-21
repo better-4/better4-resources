@@ -1,0 +1,885 @@
+// Common colors
+
+#define CL_MAGIC                        0xffcc00
+#define CL_POINTER                      0xccffcc
+#define CL_PADDING                      0x777777
+#define CL_SINGLEVALUE                  0xbbbbff
+#define CL_FLOATS                       0xdddddd
+#define CL_COUNT                        0xaaddff
+#define CL_NAME                         0xa5b2c8
+#define CL_NAME_LENGTH                  0xb5c2d8
+#define CL_CHECKSUM                     0xbbffff
+#define CL_PARSED                       0xeeeeee
+#define CL_IMPORTANT_BG                 0x333333
+#define CL_IMPORTANT_FG                 0x8888ff
+
+// ------------------------------------------------------------
+
+#define MESHFLAG_UNKG                         1 << 31
+#define MESHFLAG_UNKH                         1 << 30
+#define MESHFLAG_UNKI                         1 << 29
+#define MESHFLAG_UNKJ                         1 << 28
+#define MESHFLAG_LIGHTMAPPED                  1 << 27
+#define MESHFLAG_LIGHTMAPPED_COMPR            1 << 26
+#define MESHFLAG_ALTLIGHTMAP                  1 << 25
+#define MESHFLAG_ALTLIGHTMAP_COMPR            1 << 24
+
+#define MESHFLAG_4UVSET                       1 << 23
+#define MESHFLAG_4UVSET_COMPR                 1 << 22
+#define MESHFLAG_3UVSET                       1 << 21
+#define MESHFLAG_3UVSET_COMPR                 1 << 20
+#define MESHFLAG_2UVSET                       1 << 19
+#define MESHFLAG_2UVSET_COMPR                 1 << 18
+#define MESHFLAG_1UVSET                       1 << 17
+#define MESHFLAG_1UVSET_COMPR                 1 << 16
+
+#define MESHFLAG_SHORTPOSITION                1 << 15
+#define MESHFLAG_POSTCOLORUNK                 1 << 14
+#define MESHFLAG_UNKD                         1 << 13
+#define MESHFLAG_BILLBOARDPIVOT               1 << 12
+#define MESHFLAG_2TANGENT                     1 << 11
+#define MESHFLAG_1TANGENT                     1 << 10 
+#define MESHFLAG_UNK9                         1 << 9
+#define MESHFLAG_PRECOLORUNK                  1 << 8
+
+#define MESHFLAG_HASWEIGHTS                   1 << 7
+#define MESHFLAG_Q                            1 << 6
+#define MESHFLAG_R                            1 << 5
+#define MESHFLAG_S                            1 << 3
+#define MESHFLAG_HASVERTEXCOLORS              1 << 4
+#define MESHFLAG_T                            1 << 2
+#define MESHFLAG_U                            1 << 1
+#define MESHFLAG_SHORTPOSITION_B              1
+
+// ------------------------------------------------------------
+
+// #include "NoteKeys.bt"
+
+typedef enum <uint32> {
+
+    gh_timesig = 0x2F2BA62D,
+    gh_fretbar = 0xD64E050D,
+    gh_markers = 0x98164A18,
+    gh_vocals = 0x51BCD6FB,
+    gh_vocallyrics = 0x54915EC2,
+    gh_vocalphrase = 0xCD00D4A8,
+    gh_vocalstarpower = 0x2CF0895A,
+    gh_backup_vocals = 0x739F0A58,
+    gh_backup_vocallyrics = 0x922D033C,
+    gh_backup_vocalphrase = 0x0BBC8956,
+    gh_backup_vocalstarpower = 0x5E680BF8,
+    gh_guitarexpert = 0xAA005029,
+    gh_guitarhard = 0xB8742FCA,
+    gh_guitarmedium = 0x236886DC,
+    gh_guitareasy = 0x3003AA8F,
+    gh5_marker_note = 0x2741EDEA,
+    gh5_star_note = 0x62D2B3E5,
+    gh5_fretbar_note = 0x0D3BCED9,
+    gh5_drumfill_note = 0x8B9A5E30,
+    gh5_instrument_note = 0xB0C1E3B5,
+    gh5_timesig_note = 0x18460409,
+    gh5_band_moment_note = 0x54012FB6,
+    gh5_vocal_lyric = 0x9930D36D,
+    gh5_vocal_marker_note = 0xBE849F90,
+    gh5_vocal_phrase = 0x630787DA,
+    gh5_vocal_note = 0xD4CC2B84,
+    gh5_vocal_freeform_note = 0x07EE4A5C,
+    gh5_tapping_note = 0xBE5EFB47,
+    gh6_expert_drum_note = 0xA1DA8586,
+
+    note = 0x304205EB,
+    perf = 0x424056AD,
+
+    bandmoment = 0xBCA9255D,
+    fretbar = 0xF02E6FDA,
+    timesig = 0x094BCCFA,
+
+    vocals = 0xE8E6ADCB,
+    vocallyrics = 0x1DA27F4E,
+    vocalsmarkers = 0x032292A7,
+    vocalstarpower = 0xF7901F02,
+    vocalphrase = 0x8433F524,
+    vocalfreeform = 0xEA4C2823,
+
+    guitarmarkers = 0x92511D84,
+
+    easydrumfill = 0x25E33100,
+    mediumdrumfill = 0x7A22D687,
+    harddrumfill = 0x0901FEF6,
+    expertdrumfill = 0x5DEBA502,
+
+    drumsexpertinstrument = 0x85EC6691,
+    drumshardinstrument = 0x47376ACF,
+    drumsmediuminstrument = 0x0A140DD0,
+    drumseasyinstrument = 0x0E0ADF37,
+    bassexpertinstrument = 0x978F8759,
+    basshardinstrument = 0xF49FD1AC,
+    bassmediuminstrument = 0x1877EC18,
+    basseasyinstrument = 0xBDA26454,
+    guitarexpertinstrument = 0x01FE0E80,
+    guitarhardinstrument = 0xD20139E4,
+    guitarmediuminstrument = 0x8E0665C1,
+    guitareasyinstrument = 0x9B3C8C1C,
+
+    bassexperttapping = 0xAF3AAE86,
+    basshardtapping = 0xFFA652B3,
+    bassmediumtapping = 0x640881F7,
+    basseasytapping = 0xC4F72F0D,
+    guitarexperttapping = 0xE8E24AB6,
+    guitarhardtapping = 0x64C94EA2,
+    guitarmediumtapping = 0x23D065C7,
+    guitareasytapping = 0x5F98331C,
+
+    drumsexpertstarpower = 0x3B0F5CA2,
+    drumshardstarpower = 0x37FCA51E,
+    drumsmediumstarpower = 0xA6FAE27E,
+    drumseasystarpower = 0x630E10F8,
+    bassexpertstarpower = 0xEF07C4FB,
+    basshardstarpower = 0xF93DE8E6,
+    bassmediumstarpower = 0x72F27A27,
+    basseasystarpower = 0xADCF5D00,
+    guitarexpertstarpower = 0x972693B1,
+    guitarhardstarpower = 0xBEE50CD6,
+    guitarmediumstarpower = 0x0AD32D6D,
+    guitareasystarpower = 0xEA17B930,
+
+    // -----------------------
+
+    SkinShader = 0x852105C8,
+    SkinShader_VertexColor = 0xACD09A98,
+    HairShader = 0x6F3F03F3,
+    SkinShaderEnvMap = 0x96a8d9b5,
+    D_S_3ChkBox_Pass0 = 0x67aa2ae2,
+    D_3ChkBox_Pass0 = 0xE0AB9772,
+    Flare = 0x379BED00,
+    Flare_07 = 0x8C163D2B,
+
+    // -----------------------
+
+    DOT_img = 0xDAD5E950,
+    DOT_qb = 0xA7F505C4,
+    DOT_mqb = 0x4BC1E85E,
+    DOT_sqb = 0x5D796624,
+    DOT_nqb = 0x49875607,
+    DOT_skin = 0x64112E85,
+    DOT_tex = 0x8BFA5E8E,
+    DOT_mdl = 0x9BCC234D,
+    DOT_scn = 0x2C3B5ADC,
+    DOT_last = 0x2CB3EF3B,
+    DOT_col = 0x72A6D78C,
+    DOT_geom = 0x7EA7357B,
+    DOT_hkc = 0x8A20E0F8,
+    DOT_ske = 0x7330095C,
+    DOT_wav = 0x0A6808D4,
+    DOT_table = 0x43904241,
+    DOT_ska = 0x745DCD45,
+    DOT_pfx = 0xA7DEA591,
+    DOT_qs = 0xCD452536,
+    DOT_qs_en = 0x4EF04440,
+    DOT_qs_fr = 0x71DC4BCC,
+    DOT_qs_it = 0x1F27F236,
+    DOT_qs_de = 0xC039AC89,
+    DOT_qs_es = 0x2DF62899,
+    DOT_note = 0xA9D5BC8F,
+    DOT_perf = 0xDBD7EFC9,
+    DOT_en = 0x80ED9EBA,
+    DOT_mcol = 0x6290993B,
+    DOT_rnb = 0x91E1028D,
+    DOT_stex = 0x2B0A3095,
+    DOT_dbg = 0x559566CC,
+    DOT_imv = 0xb065c9a2,
+    DOT_tvx = 0xEA151F1C,
+    DOT_mdv = 0x66AEDA37,
+    DOT_xma = 0x2E528522,
+    DOT_fnv = 0x9014DD5C,
+    DOT_fnt = 0x7E1ABC70,
+
+    // -----------------------
+
+    AutocutCameras = 0x22E0A112,
+    MomentCameras = 0x0594D967,
+    
+    gh5_camera_note = 0x34FF8B0B,
+    gh5_actor_loops = 0x0930B9AE,
+    gh6_actor_loops = 0xB4FAD560,
+
+    z_harbor_gfx_NodeArray = 0xB05C0CC2,
+    z_harbor_gfx_FX_REncoreFlowers = 0x3ACDDF7F,
+    z_harbor_GFX_FX_FlowerReflections = 0x691ED77A,
+    Z_Harbor_GFX_FX_LongSparks = 0xD3387D7D,
+    z_harbor_GFX_FX_HarborEncore_WheelFW = 0xEA4955A4,
+    z_harbor_GFX_FX_HarborEncore_Flowers = 0x26C32FBE,
+    z_harbor_GFX_FX_HarborEncore_Streamers = 0xE1DDEEAB,
+    Z_Harbor_GFX_FX_Harbor_FrontFlowers = 0x97E37136,
+    Z_Harbor_GFX_FX_Encore_Bursts01 = 0x56DB5877,
+    Z_Harbor_GFX_FX_Encore_Bursts02 = 0xCFD209CD,
+    Z_Harbor_GFX_FX_Encore_Bursts03 = 0xB8D5395B,
+    Z_Harbor_GFX_FX_Encore_Bursts04 = 0x26B1ACF8,
+    Z_Harbor_GFX_FX_EncoreGhost = 0x8DAB5B9B,
+    Z_Harbor_GFX_FX_CitySmoke = 0xD978C67E,
+    Z_Harbor_GFX_FX_Fireworks_Burst_Flower03 = 0x7A476767,
+    Z_Harbor_GFX_FX_LampGlow = 0xA72239D5,
+    Z_Harbor_GFX_FX_CrowdFog = 0xD549EA6D,
+    
+    l_sing_josh_joker_f_anims = 0x89B782DD,
+    L_DRUM_Loops_Standard_anims = 0xE5C9F78E,
+    l_guit_tara_4horsemen_f_anims = 0xB62B6D90,
+    L_GUIT_Jeffs_LowKey_anims = 0x3D060E86,
+    l_guit_ginger_joker_anims = 0xDFE16C9A,
+    L_GUIT_Jeffs_LowKey_anims_set = 0x46A5CC40,
+    L_GUIT_Tara_4horsemen_F_anims_set = 0x2306B13D,
+    L_SING_josh_Joker_F_anims_set = 0x83544E6B,
+    L_GUIT_ginger_joker_anims_set = 0x4802DD56,
+    guitarist_finger_anims_car_female = 0x6396BABC,
+    fret_anims_rocker = 0x465639F9,
+    CAR_female_normal = 0x82072C14,
+    CAR_male_normal = 0x3C198968,
+    facial_anims_female_rocker = 0xE2F49717,
+    facial_anims_male_rocker = 0xC60C7AC9,
+    guit_jeff_lowkey_075_01 = 0x69023EF9,
+    guit_jeff_lowkey_075_01_c01 = 0x84A4768D,
+    guit_jeff_lowkey_075_01_c02 = 0x1DAD2737,
+    guit_jeff_lowkey_075_01_c03 = 0x6AAA17A1,
+    guit_sam_joker_075_01 = 0x8FF5B6A3,
+    guit_sam_joker_075_01_c01 = 0xDDA6E344,
+    guit_sam_joker_075_01_c02 = 0x44AFB2FE,
+    guit_sam_joker_075_01_c03 = 0x33A88268,
+    guit_tara_4horsemen_075 = 0x9142FE25,
+    guit_tara_4horsemen_075_c01 = 0x3A96D3C7,
+    L_GUIT_Ginger_Bulls_anims = 0x88F7E1A8,
+    L_GUIT_ginger_bulls_anims_set = 0x125A142F,
+    L_GUIT_Chris_Stillborn_F_anims = 0x53B86896,
+    L_GUIT_Chris_Stillborn_F_anims_set = 0x8AAAE324,
+    L_SING_Adam_Dammit_F_anims = 0x315C8816,
+    L_SING_Adam_Dammit_F_anims_set = 0x57BFB323,
+    L_SING_JeffS_LowKey_anims = 0x56B5B6AF,
+    L_SING_JeffS_Lowkey_anims_set = 0x455AC6F7,
+    L_SING_Adam_Dammit_anims = 0xFC7E8694,
+    L_SING_Adam_Dammit_anims_set = 0x581618B4,
+    guitarist_finger_anims_CAR_Male = 0xA70633E6,
+    L_GUIT_Ginger_Bulls_M_anims = 0x937E2561,
+    L_GUIT_Ginger_Bulls_M_anims_set = 0xEF9D61D1,
+    L_GUIT_Chris_Stillborn_anims = 0x02921877,
+    L_GUIT_Chris_Stillborn_anims_set = 0xC39F0063,
+    tr_percent100 = 0x5B37F1F6,
+    bestscore = 0x4AE0A981,
+    tr_stars = 0xF3D7F3ED,
+    Score = 0xCD66C8AE,
+    
+    SK6_BA_FliesOnShit = 0x308CD397,
+    
+    Control_Root = 0x1BE55811,
+    Bone_Pelvis = 0x63540A6D,
+    Bone_Stomach_Lower = 0x897B494B,
+    Bone_Stomach_Upper = 0xE9BEEDF4,
+    Bone_Chest = 0x96EC22F2,
+    Bone_Collar_L = 0xF1C35735,
+    Bone_Forearm_L = 0x9BBB8DDD,
+    Bone_Palm_L = 0x82B37CBC,
+    Bone_Collar_R = 0x0BCC6A56,
+    Bone_Shoulder_L = 0xCB0F4E56,
+    Bone_Shoulder_R = 0x31007335,
+    Bone_Thigh_L = 0x2703ED42,
+    Bone_Thigh_R = 0xDD0CD021,
+    Bone_Knee_R = 0xE0E63A64,
+    Bone_Knee_L = 0x1AE90707,
+    Bone_Ankle_R = 0x9BAAC767,
+    Bone_Ankle_L = 0x61A5FA04,
+    Bone_Toe_L = 0xf3a6a221,
+    Bone_Toe_R = 0x09a99f42,
+    Bone_Bicep_R = 0xE0D28892,
+    Bone_Bicep_L = 0x1ADDB5F1,
+    Bone_Fingers_Base_L = 0x744087F0,
+    Bone_Fingers_Base_R = 0x8E4FBA93,
+    Bone_Fingers_Tip_L = 0x437E2114,
+    Bone_Fingers_Tip_R = 0xB9711C77,
+    Bone_Forefinger_Base_L = 0x78A9D53A,
+    Bone_Forefinger_Base_R = 0x82A6E859,
+    Bone_Forefinger_Tip_L = 0x1C37D3DF,
+    Bone_Forefinger_Tip_R = 0xE638EEBC,
+    Bone_Thumb_L = 0xE039F273,
+    Bone_Thumb_R = 0x1A36CF10,
+    Bone_Wrist_L = 0x7EE14CFE,
+    Bone_Wrist_R = 0x84EE719D,
+    Bone_Neck = 0x5A0E0860,
+    Bone_Head = 0xDDEC28AF,
+    Bone_Jaw = 0x7268C230,
+    Bone_Nostrils = 0xE36AF2CC,
+    Bone_Twist_Wrist_L = 0x431A672C,
+    Bone_Twist_Wrist_R = 0xB9155A4F,
+    Bone_Hand_Middle_Base_L = 0x68EC1DDA,
+    Bone_Hand_Middle_Base_R = 0x92E320B9,
+    Bone_Hand_Middle_Mid_L = 0xF55A971A,
+    Bone_Hand_Middle_Mid_R = 0x0F55AA79,
+    Bone_Hand_Index_Base_L = 0x7F8C4CD6,
+    Bone_Hand_Index_Base_R = 0x858371B5,
+    Bone_Hand_Index_Mid_L = 0x22B5D884,
+    Bone_Hand_Index_Mid_R = 0xD8BAE5E7,
+    Bone_Hand_Thumb_Base_L = 0x9B410FAA,
+    Bone_Hand_Thumb_Base_R = 0x614E32C9,
+    Bone_ACC_Head_01 = 0xFA0ABBAF,
+    Bone_ACC_Head_02 = 0x6303EA15,
+    Bone_ACC_Head_03 = 0x1404DA83,
+    Bone_ACC_Head_04 = 0x8A604F20,
+    Bone_ACC_Head_05 = 0xFD677FB6,
+    Bone_ACC_Head_06 = 0x646E2E0C,
+    Bone_ACC_Legs_01 = 0x4CCB053A,
+    Bone_ACC_Legs_02 = 0xD5C25480,
+    Bone_ACC_Legs_03 = 0xA2C56416,
+    Bone_ACC_Legs_04 = 0x3CA1F1B5,
+    Bone_ACC_Legs_05 = 0x4BA6C123,
+    Bone_ACC_Legs_06 = 0xD2AF9099,
+    Bone_ACC_Shirt_Back = 0xBE3E3F45,
+    Bone_ACC_Shirt_R = 0x5FE7ED84,
+    Bone_ACC_Shirt_L = 0xA5E8D0E7,
+    Bone_ACC_Misc = 0x90BACFA9,
+    Bone_Board_Main = 0x314B2B90,
+    Bone_Board_Deck = 0xC1CFD0C3,
+    Bone_Board_Truck_Nose = 0xBF36DDB3,
+    Bone_Board_Truck_Back = 0x52047057,
+    Bone_Tongue = 0x173BB91A,
+    Bone_Twist_Bicep_Top_L = 0x3DDD9CCB,
+    Bone_Twist_Bicep_Top_R = 0xC7D2A1A8,
+    Bone_Forearm_R = 0x61B4B0BE,
+    Bone_Palm_R = 0x78BC41DF,
+    Bone_Twist_Bicep_Mid_L = 0x6E693D48,
+    Bone_Twist_Bicep_Mid_R = 0x9466002B,
+    Bone_ACC_TSleeve_L = 0x68FB46C6,
+    Bone_ACC_TSleeve_R = 0x92F47BA5,
+    Bone_Board_Root = 0x98971FAF,
+    Bone_Board_Nose = 0x0E9F8A27,
+    Bone_Board_Tail = 0xF25452A9,
+    Bone_Trucks_Nose = 0xE68D351A,
+    Bone_Trucks_Tail = 0x1A46ED94,
+    Bone_Head_Top_Scale = 0xA85E66D7,
+    Bone_PonyTail_1 = 0x2182E17B,
+    Bone_Nose_Scale = 0xD766309D,
+    Bone_Chin_Scale = 0xA985AFFD,
+    Bone_Bicep_Twist_Mid_L = 0x85FE92A0,
+    Bone_Bicep_Twist_Mid_R = 0x7FF1AFC3,
+    Bone_Bicep_Twist_Top_L = 0xD64A3323,
+    Bone_Bicep_Twist_Top_R = 0x2C450E40,
+    Cloth_Breast = 0x0AA1482B,
+    Cloth_Shirt_L = 0x7F353D60,
+    Cloth_Shirt_R = 0x853A0003,
+    Cloth_Shirt_C = 0xEF8A20F1,
+    
+    CareerMissionsComplete = 0xF1DA9FA5,
+    total_goals_complete = 0x959dcf6e,
+    CareerMissionsTotal = 0x413febbd,
+    Filename = 0xc3f4169a,
+    network_id = 0xcbed746e,
+    AutoKickOn = 0x1eef7085,
+    VibrationOn = 0x73cee124,
+    GlobalInfo = 0xF55CBD13,
+    ui_string = 0x96875c0f,
+    Checksum = 0x21902065,
+    game_type = 0x9834c4fa,
+    options = 0x2fca0578,
+    SplitScreenPreferences = 0xf7720c3f,
+    SoundOptions = 0x89eb9738,
+    ControllerPreferences = 0x37bdb853,
+    Story = 0x14A9FBC7,
+    StorySkater = 0x0DF2F448,
+    CustomSkater = 0x12BFAC82,
+    Custom_Classic = 0x4B49B79F,
+    Custom_Story = 0xD7A403AE,
+    Version_Number = 0x1902C8F0,
+    appearance = 0x554C7D6F,
+    // info = 0x3476CEA8,
+    creation_params = 0x1E662979,
+    pedlogic_params = 0x703E8DEF,
+    ped_body = 0x3CC913BC,
+    ped_m_accessories = 0xE5DC27BA,
+    skateboard_wheels = 0xE2B2DEDE,
+    career = 0x4DA4937B,
+    gamerecords = 0xE764EDF2,
+    defaultinitials = 0x24EB19A8,
+    pros = 0xC9986BAF,
+    Hawk = 0xD32209F9,
+    NodeFlags = 0x6E7B43C8,
+    StoryNodeFlags = 0x435E1834,
+    NodeFlagApplicationState = 0xF93C6F8C,
+    LevelFlags = 0xC0FA354F,
+    GlobalFlags = 0xA888FE32,
+    GapChecklists = 0x9DD7E4A6,
+    Story_Atom_Group = 0x1D740746,
+    CASItems = 0x43F2A1A0,
+    CashMoney = 0x2883556D,
+    CurrentBikeTrainingGoal = 0x232BED57,
+    PieceGoalsStatus = 0x71C5EBAF,
+    LastPieceGoalIndexUnlocked = 0xC7B0A075,
+    GraffitiStylesUnlocked = 0x51BC24CF,
+    FirstStatChallengeComplete = 0xA0267618,
+    CareerBoardComboRecord = 0xFA76C66F,
+    CareerBikeComboRecord = 0x2CA1AE5C,
+    DaysPassed = 0x33E6568D,
+    LastLevel = 0xAE1B87AB,
+    TempAppearance = 0xCFBD06D8,
+    StoryStatsCompleted = 0x71E09AE2,
+    ClassicScores = 0xE888DD02,
+    ClassicTotalScore = 0x6C1A5E39,
+    ClassicStats = 0x55D761CF,
+    
+    TRG_Lada_Rail01 = 0x5519E115,
+    TRG_Lada_Rail02 = 0xCC10B0AF,
+    TRG_Lada_Rail03 = 0xBB178039,
+    TRG_Lada_Rail04 = 0x2573159A,
+    TRG_Lada_Rail05 = 0x5274250C,
+    TRG_Lada_Rail06 = 0xCB7D74B6,
+    TRG_Lada_Rail07 = 0xBC7A4420,
+    TRG_Lada_Rail08 = 0x2CC559B1,
+    TRG_Lada_Rail09 = 0x5BC26927,
+    TRG_Lada_Rail10 = 0x3B05E0C2,
+    
+    Car = 0x88C21962,
+    Car_Shadow = 0x92E19120,
+    Car_Wheel01 = 0x6E2F434E,
+    Car_Wheel02 = 0xF72612F4,
+    Car_Wheel03 = 0x80212262,
+    Car_Wheel04 = 0x1E45B7C1,
+    
+    sky = 0xF9D98B10,
+    default_sky_NodeArray = 0x88A04B05,
+    
+    Objects = 0x4DE5330C,
+    CamAnimDuration = 0xF1948C44,
+    ObjectName = 0x2BFC2486,
+    Type = 0x7321A8D6,
+    NonSkinnedModel = 0xAE726208,
+    InternalSkinnedModel = 0xE8B7E55C,
+    ExternalModelFile = 0xAA044D79,
+    SkeletonName = 0x09794932,
+    SSnapshotBank = 0xFE17E481,
+    CSnapshotData = 0x3F830E42,
+    SLightShowParamsBase = 0x4BE5E3A5,
+    SLightShowParamsLight = 0x259AE4CE,
+    SLightShowParamsHousing = 0x7166A8B8,
+
+    Z_Egypt_LFX_L_Ambient_FX = 0xC0C1DAD6,
+    Z_Egypt_LFX_L_Crowd_Ambient = 0x2FF493F9,
+    Z_Egypt_LFX_L_Crowd_Direct = 0xCC99B93C,
+    Z_Egypt_LFX_L_Bassist_Direct = 0x36F265EC,
+    Z_Egypt_LFX_L_Drummer_Direct = 0xC41E3C65,
+    Z_Egypt_LFX_L_Guitarist_Direct = 0x883BD3B9,
+    Z_Egypt_LFX_L_Vocalist_Direct = 0xE3EFEE4B,
+    Z_Egypt_LFX_TRG_LH_Band_Bassist_HotSpot_01 = 0x6578CA9C,
+    Z_Egypt_LFX_TRG_LH_Band_Vocalist_HotSpot_01 = 0x902729DC,
+    Z_Egypt_LFX_TRG_LH_Band_Guitarist_HotSpot_01 = 0xC908544E,
+    Z_Egypt_LFX_TRG_LH_Band_Drummer_HotSpot_01 = 0x373C09C2,
+    Z_Egypt_LFX_TRG_LH_Top01 = 0xE1A07BDC,
+    Z_Egypt_LFX_TRG_LH_Top02 = 0x78A92A66,
+    Z_Egypt_LFX_TRG_LH_Top03 = 0x0FAE1AF0,
+    Z_Egypt_LFX_TRG_LH_Top04 = 0x91CA8F53,
+    Z_Egypt_LFX_TRG_LH_Top05 = 0xE6CDBFC5,
+    Z_Egypt_LFX_TRG_LH_Top06 = 0x7FC4EE7F,
+    Z_Egypt_LFX_TRG_LH_Top07 = 0x08C3DEE9,
+    Z_Egypt_LFX_TRG_LH_Top08 = 0x987CC378,
+    Z_Egypt_LFX_TRG_LH_Top09 = 0xEF7BF3EE,
+    Z_Egypt_LFX_TRG_LH_Top10 = 0x8FBC7A0B,
+    Z_Egypt_LFX_TRG_LH_Top12 = 0x61B21B27,
+    Z_Egypt_LFX_TRG_LH_Top13 = 0x16B52BB1,
+    Z_Egypt_LFX_TRG_LH_Top14 = 0x88D1BE12,
+    Z_Egypt_LFX_TRG_LH_Top15 = 0xFFD68E84,
+    Z_Egypt_LFX_TRG_LH_Top16 = 0x66DFDF3E,
+    Z_Egypt_LFX_TRG_LH_Top17 = 0x11D8EFA8,
+    Z_Egypt_LFX_TRG_LH_Top18 = 0x8167F239,
+    Z_Egypt_LFX_TRG_LH_Top19 = 0xF660C2AF,
+    Z_Egypt_LFX_TRG_LH_Top20 = 0xA49129C8,
+    Z_Egypt_LFX_TRG_LH_MenuSpotlight = 0xF2821D59,
+    Z_Egypt_LFX_TRG_LH_Periph01 = 0x2D8B016C,
+    Z_Egypt_LFX_TRG_LH_Periph02 = 0xB48250D6,
+    Z_Egypt_LFX_TRG_LH_Periph03 = 0xC3856040,
+    Z_Egypt_LFX_TRG_LH_Periph04 = 0x5DE1F5E3,
+    Z_Egypt_LFX_TRG_LH_Periph05 = 0x2AE6C575,
+    Z_Egypt_LFX_TRG_LH_Periph06 = 0xB3EF94CF,
+    Z_Egypt_LFX_TRG_LH_Periph07 = 0xC4E8A459,
+    Z_Egypt_LFX_TRG_LH_Periph08 = 0x5457B9C8,
+    Z_Egypt_LFX_TRG_LH_HotSpot_Left = 0x1D9EC3FB,
+    Z_Egypt_LFX_TRG_LH_HotSpot_Middle = 0xB93652C1,
+    Z_Egypt_LFX_TRG_LH_VOCALIST_FollowHigh = 0x76FB55BD,
+    Z_Egypt_LFX_TRG_LH_GUITARIST_FollowHigh = 0x401297D2,
+
+    z_PunkStage_LFX_LH_FrontLeft_01 = 0x842E02D3,
+    z_PunkStage_LFX_L_Bassist_Direct = 0x016C6E32,
+    z_PunkStage_LFX_TRG_LH_Bassist_FollowBack = 0x4E8033C0,
+    z_PunkStage_LFX_TRG_LH_VOCALIST_FollowRight = 0xE008F5E0,
+    z_PunkStage_LFX_LH_BackLeft_02 = 0xB42A60DB,
+    z_PunkStage_LFX_L_ambient_out = 0xA1C8FEA0,
+
+    z_HouseBand_LFX_TRG_LH_MenuSpotlight = 0x663AD23E,
+    z_HouseBand_LFX_TRG_LH_CircleHousing_02 = 0x2C8C6BD4,
+    z_HouseBand_LFX_TRG_LH_HotSpot01 = 0x9288F20B,
+    z_HouseBand_LFX_TRG_LH_HotSpot02 = 0x0B81A3B1,
+    z_HouseBand_LFX_TRG_LH_HotSpot03 = 0x7C869327,
+    z_HouseBand_LFX_L_CrowdSpot01 = 0xB290D732,
+    z_HouseBand_LFX_TRG_LH_DRUMMER_FollowLowRight = 0x3F07535A,
+    z_HouseBand_LFX_TRG_LH_DRUMMER_FollowLowLeft = 0x06933314,
+
+    Volume2D = 0xE3E7F336,
+    Volume2DSoftEdge = 0xAB9DE0C6,
+    Everything = 0xFABD0AA8,
+    Default = 0x1CA1FF20,
+    None = 0x806FFF30,
+    StageOnly = 0x50BDE7E9,
+
+    Lst__HashTable = 0xEFDC8FD7,            // Lst::HashTable
+
+    Blackout = 0xF3B3B42A,
+    Spotlights_Blue = 0x073DF0AB,
+    Spotlights_Green = 0x8F090763,
+    Spotlights_Magenta = 0xFAA0B3E9,
+    Spotlights_Off = 0x26BD8866,
+    Spotlights_Orange = 0x574AEDA0,
+    Spotlights_Purple = 0xA00A2E3E,
+    Spotlights_Red = 0xF7608AAA,
+    Spotlights_White = 0x1D5C24E6,
+    Spotlights_Yellow = 0x9A8BB047,
+    Intro01 = 0x4E34D351,
+    Climax01 = 0x9116D376,
+    Tension03 = 0xAF35DC26,
+
+    level_name = 0xC8F97AE8,
+    scene_name = 0xBA7AEAFD,
+    creator = 0x43F9159C,
+    level_qb = 0xCB368934,
+    level_scripts_qb = 0x3FB8F18B,
+    level_sfx_qb = 0xF0BC6B42,
+    level_thugpro_qb = 0x90441BEC,
+    level_pre = 0x57A72F8D,
+    level_scnpre = 0xCB762BCC,
+    level_colpre = 0xA7590CDD,
+
+    dummy_scale_zz = 0x9f173eeb,
+    pelvis = 0x48720791,
+    stomach = 0xb9221abb,
+    chest = 0x04bb4c48,
+    neck = 0xdfee29ac
+    head = 0x580c0963,
+    mullet_cloth_zz = 0x29fb00ba,
+    jaw = 0xf779d662,
+    breast_cloth_zz = 0x47c76c69,
+    left_collar = 0x4c54d6a3,
+    left_bicep = 0x95e357b9,
+    left_forearm = 0x8c70f2af,
+    left_wrist = 0xac996bcd,
+    left_palm = 0x215d61e9,
+    left_thumb_base = 0x4dc20408,
+    left_forefinger_base = 0x2eb9c296,
+    left_forefinger_tip = 0x44b41368,
+    left_fingers_base = 0x002bfea9,
+    left_fingers_tip = 0x6285ad15,
+    left_low_sleeve_cloth_zz = 0x1d881822,
+    left_top_sleeve_cloth_zz = 0x27f942e6,
+    right_collar = 0x291719a6,
+    right_bicep = 0x66f594e1,
+    right_forearm = 0xfc7f45ef,
+    right_wrist = 0x5f8fa895,
+    right_palm = 0x8eef71fb,
+    right_thumb_base = 0x0663ac56,
+    right_forefinger_base = 0xea72234f,
+    right_forefinger_tip = 0xee1f7291,
+    right_fingers_base = 0xfc1eee08,
+    right_fingers_tip = 0xee1d704e,
+    right_low_sleeve_cloth_zz = 0x5af35c8a,
+    right_top_sleeve_cloth_zz = 0x6082064e,
+    hood_cloth_zz = 0x5386ce12,
+    right_hip = 0x9f73267f,
+    right_knee = 0xddb2d523,
+    right_ankle = 0x0e8ed892,
+    right_toes = 0x20de4d8c,
+    right_low_trouser_cloth_zz = 0x12890a01,
+    right_top_trouser_cloth_zz = 0x8eba7df2,
+    shirt_tail_cloth_zz = 0x263cc3b9,
+    left_hip = 0x277878d6,
+    left_top_trouser_cloth_zz = 0x56f02d6c,
+    left_knee = 0x7200c531,
+    left_ankle = 0xfd981bca,
+    left_toes = 0x8f6c5d9e,
+    left_low_trouser_cloth_zz = 0xcac35a9f,
+    burnq_board = 0xbe27cb0b,
+    burnq_front_wheel = 0xba8c953d,
+    burnq_back_wheel = 0x203621b0,
+    Cloth_Cuff_L = 0x4e7a0d0d,
+    Cloth_Cuff_R = 0xb475306e,
+    Cloth_Hat = 0x4177c63c,
+    Bone_Brow = 0xb105116e,
+    Bone_PonyTail_2 = 0xb88bb0c1,
+    Cloth_Trouser_R = 0x727c060f,
+    Cloth_Trouser_L = 0x88733b6c,
+
+    FLAG_NOSUN = 0x3EE1C0FE,
+    FLAG_OFFLINE = 0xD6DBAF82,
+    FLAG_INDOOR = 0x01314F02,
+    FLAG_DEFAULT_SKY = 0x11247DC4,
+    FLAG_ENABLE_WALLRIDE_HACK = 0xDDF73B79,
+    FLAG_DISABLE_BACKFACE_HACK = 0x565A997C,
+    FLAG_MODELS_IN_SCRIPT_PRX = 0xD7AE05C2,
+    FLAG_DISABLE_GOALEDITOR = 0x237C8CD7,
+    FLAG_DISABLE_GOALATTACK = 0xA84D5056,
+    FLAG_NO_PRX = 0x0EBD48E5,
+} NOTE_QBKEY <format=hex>;
+
+string ReadNoteQBKey(NOTE_QBKEY &key)
+{
+    return EnumToString(key);
+}
+
+typedef struct (int start_value)
+{
+    local int start_value = start_value;
+    int offset;
+} RelativeOffset <read=ReadRelativeOffset>;
+
+int AbsOffset(RelativeOffset &off)
+{
+    return off.start_value + off.offset;
+}
+
+string ReadRelativeOffset(RelativeOffset &off)
+{
+    if (off.offset < 0)
+        return Str("%d", off.offset);
+
+    return Str("%d", AbsOffset(off));
+}
+
+int SnapAmount(int a, int snap_value)
+{
+    local int extra = a % snap_value;
+
+    if (extra > 0)
+        return (snap_value - extra);
+
+    return 0;
+}
+
+int SnappedNumber(int a, int snap_value)
+{
+    local int am = SnapAmount(a, snap_value);
+    if (am > 0)
+        return a + am;
+
+    return a;
+}
+
+void SkipTo(int snap_value)
+{
+    local int skip_amount = SnapAmount(FTell(), snap_value);
+    if (skip_amount > 0)
+        FSkip(skip_amount);
+}
+
+typedef struct
+{
+    int values[3];
+} Int3 <read=ReadInt3>;
+
+typedef struct
+{
+    int values[4];
+} Int4 <read=ReadInt4>;
+
+typedef struct
+{
+    float values[2];
+} Vec2 <read=ReadVec2>;
+
+typedef struct
+{
+    float values[3];
+} Vec3 <read=ReadVec3>;
+
+typedef struct
+{
+    float values[4];
+} Vec4 <read=ReadVec4>;
+
+typedef struct
+{
+    Vec4 m_min;
+    Vec4 m_max;
+} CBBox <read=ReadCBBox>;
+
+typedef struct
+{
+    Vec3 m_min;
+    Vec3 m_max;
+} CBBox_Small <read=ReadCBBox_Small>;
+
+typedef struct
+{
+    Vec3 position;
+    float radius;
+} Sphere <read=ReadSphere>;
+
+typedef struct
+{
+    NOTE_QBKEY checksum;
+} QBKey <read=ReadQBKey>;
+
+ubyte ChecksumEquals(QBKey &a, uint b)
+{
+    if (a.checksum == b)
+        return true;
+
+    return false;
+}
+
+string ReadQBKey(QBKey &key)
+{
+    local string s;
+    local NOTE_QBKEY noteKey;
+
+    string readKey = ReadNoteQBKey(key.checksum);
+    
+    if (readKey != "")
+        return readKey;
+
+    return Str("0x%08x", key.checksum);
+}
+
+string ReadVec2(Vec2 &vec)
+{
+    return Str("(%f, %f)", vec.values[0], vec.values[1]);
+}
+
+string ReadVec3(Vec3 &vec)
+{
+    return Str("(%f, %f, %f)", vec.values[0], vec.values[1], vec.values[2]);
+}
+
+string ReadVec4(Vec4 &vec)
+{
+    return Str("(%f, %f, %f, %f)", vec.values[0], vec.values[1], vec.values[2], vec.values[3]);
+}
+
+string ReadCBBox(CBBox &box)
+{
+    return Str("%s, %s", ReadVec4(box.m_min), ReadVec4(box.m_max));
+}
+
+string ReadCBBox_Small(CBBox_Small &box)
+{
+    return Str("%s, %s", ReadVec3(box.m_min), ReadVec3(box.m_max));
+}
+
+string ReadInt3(Int3 &num)
+{
+    return Str("(%d, %d, %d)", num.values[0], num.values[1], num.values[2]);
+}
+
+string ReadInt4(Int4 &num)
+{
+    return Str(s, "(%d, %d, %d, %d)", num.values[0], num.values[1], num.values[2], num.values[3]);
+}
+
+string ReadSphere(Sphere &vec)
+{
+    return Str("(%f, %f, %f), %f", vec.position.values[0], vec.position.values[1], vec.position.values[2], vec.radius);
+}
+
+int Vec4ToColor(float r, float g, float b, float a)
+{
+    local int r_int = Min(255, Floor(255 * (r / 1.0)));
+    local int g_int = Min(255, Floor(255 * (g / 1.0)));
+    local int b_int = Min(255, Floor(255 * (b / 1.0)));
+
+    g_int = g_int << 8;
+    b_int = b_int << 16;
+
+    return r_int + g_int + b_int;
+}
+
+typedef struct
+{
+    uint count <bgcolor=CL_NAME_LENGTH>;
+    
+    if (count > 0)
+        char text[count] <bgcolor=CL_NAME, optimize=false>;
+} NumString<read=Str("%s", count > 0 ? text : "")>;
+
+string NumStringStr(NumString &ns)
+{
+    return (ns.count > 0) ? ns.text : "";
+}
+
+// Count, followed by pointers
+
+typedef struct
+{
+    short count <bgcolor=CL_COUNT>;
+    short null <bgcolor=CL_PADDING>;
+
+    int pointers[count] <bgcolor=CL_POINTER>;
+} Count <read=ReadCount>;
+
+string ReadCount(Count &count)
+{
+    return Str("%d object(s)", count.count);
+}
+
+typedef struct
+{
+    string charlist <bgcolor=CL_NAME>;
+
+} TermString <read=ReadTermString>;
+
+string ReadTermString(TermString &str)
+{
+    return str.charlist;
+}
+
+// -------------------
+
+typedef struct
+{
+    wstring charlist <bgcolor=CL_NAME>;
+} TermWString <read=ReadTermWString>;
+
+string ReadTermWString(TermWString &str)
+{
+    return str.charlist;
+}
+
+// -------------------
+
+string PeekTermString()
+{
+    local uint old_off = FTell();
+    local string str = "";
+    local ubyte chr = ReadUByte();
+
+    while (chr != 0x00)
+    {
+        SPrintf(str, "%s%d", str, chr);
+        FSeek(FTell() + 1);
+        chr = ReadUByte();
+    }
+
+    FSeek(old_off);
+
+    return str;
+}
+
+typedef struct
+{
+    RelativeOffset name_offset(0);
+    local int old_off = FTell();
+    FSeek(AbsOffset(name_offset));
+    TermString name;
+    FSeek(old_off);
+} NamePointer <read=ReadNamePointer>;
+
+string ReadNamePointer(NamePointer &ptr)
+{
+    return ReadTermString(ptr.name);
+}
+
+typedef struct
+{
+    Vec4 a;
+    Vec4 b;
+    Vec4 c;
+    Vec4 d;
+} Matrix_4x4;

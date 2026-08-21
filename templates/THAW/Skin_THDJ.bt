@@ -1,0 +1,508 @@
+//------------------------------------------------
+// THDJ Wii .skin file.
+//------------------------------------------------
+
+#include "../Common.bt"
+
+#define VPOS_DIVISOR                256.0
+#define VNRM_DIVISOR                16384.0
+#define UV_DIVISOR                  1024.0
+
+local uint CurrentFaceBlockFlags;
+local uint StaticVerticesCount;
+
+// No idea what this is
+typedef struct (uint size)
+{
+    ubyte data[size] <bgcolor=0xFFCCCC>;
+} UnkObject;
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} SectorColor <read=Str("%d, %d, %d, %d", r, g, b, a)>;
+
+typedef struct
+{
+    ushort unkA;
+    ushort unkB;
+} CountedObject <read=Str("%d, %d", unkA, unkB)>;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    short pos_x;
+    short pos_y;
+    short pos_z;
+    short nrm_x;
+    short nrm_y;
+    short nrm_z;
+} SectorVertex <read=Str("(%f, %f, %f)", pos_x / VPOS_DIVISOR, pos_y / VPOS_DIVISOR, pos_z / VPOS_DIVISOR)>;
+
+typedef struct
+{
+    // HACK HACK HACK: pro_tomboy_alt_body.skin.ngc
+    local uint test_count = ReadUInt();
+    
+    while (test_count & 0xFF00000)
+    {
+        float hack_float;
+        test_count = ReadUInt();
+    }
+    
+    uint count;
+    ubyte bones[4];
+    
+    if (count)
+        SectorVertex verts[count];
+        
+    // Determine how many bones we have assigned.
+    // If we have > 1, then we seem to have a section for bone weights.
+    
+    local ubyte bone_count;
+    
+    bone_count += (bones[0] > 0) ? 1 : 0;
+    bone_count += (bones[1] > 0) ? 1 : 0;
+    bone_count += (bones[2] > 0) ? 1 : 0;
+    bone_count += (bones[3] > 0) ? 1 : 0;
+    
+    if (bone_count > 1 && count)
+    {
+        uint compressed_weights[count];
+    }
+        
+} SectorVertexChunk <read=Str("%d verts [%d, %d, %d, %d]", count, bones[0], bones[1], bones[2], bones[3])>;
+
+typedef struct (uint buffer_size, uint vertex_count, uint mesh_count)
+{
+    local uint running_vertex_count;
+    local uint end_pos = FTell() + buffer_size;
+
+    while (running_vertex_count < vertex_count)
+    {
+        SectorVertexChunk chunk;
+        
+        running_vertex_count += chunk.count;
+    }
+    
+    uint extra_unk;
+    
+    if (extra_unk)
+    {
+        uint count_of_unks;
+        uint four;
+        
+        ushort unkA;
+        ushort unkB;
+    }
+    
+    if (FTell() < end_pos)
+    {
+        ubyte padding[end_pos - FTell()] <hidden=true, bgcolor=CL_PADDING>;
+    }
+    
+    FSeek(end_pos);
+} SectorVertexBuffer;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    local ushort final_uv_index = 0;
+    local ubyte final_flags = 0;
+    
+    ushort index_a;
+    ushort index_b;
+    
+    if (CurrentFaceBlockFlags <= 3)
+    {
+        ushort uv_index;
+        final_uv_index = uv_index;
+    }
+    
+    if (CurrentFaceBlockFlags >= 3)
+    {
+        if (!StaticVerticesCount)
+        {
+            byte flags;
+            final_flags = flags;
+        }
+    }
+    
+    // Has UV's at all?
+    if (CurrentFaceBlockFlags >= 4)
+    {
+        ushort uv_index;
+        
+        
+        final_uv_index = uv_index;
+    }
+    
+    // Second UV slot?
+    if (CurrentFaceBlockFlags >= 5)
+        ushort uv_index_b;
+        
+    // Third UV slot?
+    if (CurrentFaceBlockFlags >= 6)
+        ushort uv_index_c;
+        
+    // Fourth UV slot?
+    if (CurrentFaceBlockFlags >= 7)
+        ushort uv_index_d;
+        
+} SectorFaceIndex <read=Str("0x%02x (%d, %d), UV %d", final_flags, index_a, index_b, final_uv_index)>;
+
+typedef struct
+{
+    ubyte indicator <bgcolor=0xAAFFAA>;
+    ushort num_indices;
+    
+    if (num_indices)
+        SectorFaceIndex indices[num_indices] <optimize=false>;
+} SectorFaceStrip <read=Str("%d indices", num_indices)>;
+
+typedef struct
+{
+    local ubyte test_byte = ReadByte();
+    
+    while (test_byte == 0x9F)
+    {
+        SectorFaceStrip strip;
+        test_byte = ReadByte();
+    }
+} SectorStripChunk;
+
+enum <ushort> FaceBufferUVFlags
+{
+    FBUF_0_UV = 0,          // 00000000
+    FBUF_1_UV = 3,          // 00000011
+    FBUF_2_UV = 15,         // 00001111
+    FBUF_3_UV = 63,         // 00111111
+    FBUF_4_UV = 255,        // 11111111
+};
+
+typedef struct
+{
+    uint buffer_size <bgcolor=CL_SINGLEVALUE>;
+    QBKey sector_checksum <bgcolor=CL_CHECKSUM, comment="Same as parent sector">;
+    ushort unka;
+    ushort unkb;
+    uint unkc;
+    float floats[4];
+     
+    uint zero;
+    ushort maybe_const_a;
+    ushort four_or_five <comment="Sometimes 4, sometimes 5">;
+    CurrentFaceBlockFlags = four_or_five;
+    
+    ushort unkd;
+    ushort maybe_const_c;
+    
+    uint material_index_maybe <bgcolor=CL_SINGLEVALUE>;
+    
+    uint buffer_size_again <bgcolor=CL_SINGLEVALUE>;
+    
+    uint maybe_const_d;
+    
+    uint zero;
+    uint maybe_const_e;
+    
+    // Buffer starts here!
+    local uint buffer_end = FTell() + buffer_size;
+    
+    uint face_valu_a;
+    uint face_valu_b;
+    
+    ushort num_strips;
+    FaceBufferUVFlags uv_flags;
+    ushort unkb;
+    ushort unkc;
+    ushort unkd;
+    ushort unke;
+    ubyte unkf;
+    
+    SectorStripChunk chunk;
+    
+    FSeek(buffer_end);
+} SectorFaceBuffer <read=Str("%s: %d bytes, Material %d", ReadQBKey(sector_checksum), buffer_size, material_index_maybe)>;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    ushort mesh_count <bgcolor=CL_SINGLEVALUE>;
+    ushort zero <hidden=true>;
+    
+    uint vertex_buffer_size <bgcolor=CL_SINGLEVALUE>;
+    
+    ushort vertex_count <bgcolor=CL_SINGLEVALUE>;
+    
+    ushort mesh_flags <bgcolor=CL_SINGLEVALUE>;
+    
+    ushort unkC <bgcolor=CL_SINGLEVALUE>;
+    short unkD <bgcolor=CL_SINGLEVALUE>;
+    
+    SkipTo(32);
+    
+    Vec4 bound_unk[2] <bgcolor=CL_SINGLEVALUE>;
+    
+    // Weighted vertices.
+    if (!StaticVerticesCount)
+        SectorVertexBuffer vertex_buffer(vertex_buffer_size, vertex_count, mesh_count) <bgcolor=0xAAAAFF>;
+    
+    if (mesh_count)
+        SectorFaceBuffer face_buffers[mesh_count] <optimize=false, bgcolor=0xCCDDEE>;
+} Sector;
+
+typedef struct
+{
+    QBKey checksum <bgcolor=CL_CHECKSUM>;
+    uint unkA;
+    uint unkB;
+    
+    ushort material_index <bgcolor=CL_SINGLEVALUE>;
+    ushort mesh_index <bgcolor=CL_SINGLEVALUE>;
+    
+    ubyte data[16];
+} SectorInfo <read=Str("%s, Material %d, Mesh %d", ReadQBKey(checksum), material_index, mesh_index)>;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    uint object_size;
+    uint object_unk;
+    ushort shorty;
+    short shorts[15];
+} ThirtyObjectInfo <read=Str("%d bytes, %d", object_size, object_unk)>;
+
+typedef struct (uint object_size)
+{
+    local uint next_pos = FTell() + object_size;
+    
+    uint magic <bgcolor=CL_SINGLEVALUE>;
+    ubyte data[next_pos - FTell()];
+    
+    FSeek(next_pos);
+} ThirtyObject;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    float floats[8];
+} PreMatObject;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    uint object_size;
+    uint object_unk;
+} HeaderObjectInfo <read=Str("%d bytes, %d", object_size, object_unk)>;
+
+typedef struct (uint object_size)
+{
+    local uint next_pos = FTell() + object_size;
+    
+    uint magic <bgcolor=CL_SINGLEVALUE>;
+    ubyte data[next_pos - FTell()];
+    
+    FSeek(next_pos);
+} HeaderObject;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    local uint next_pos = FTell() + 44;
+    
+    uint texture_index_maybe;
+    ushort unkA;
+    ushort unkB;
+    short unkC;
+    ushort unkD;
+    
+    SectorColor color;
+    
+    uint unkE;
+    
+    ubyte data[next_pos - FTell()];
+} Material <read=Str("Texture %d", texture_index_maybe)>;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    short x;
+    short y;
+} UV <read=Str("(%f, %f)", x / UV_DIVISOR, y / UV_DIVISOR)>;
+
+typedef struct (uint uv_count)
+{
+    UV uvs[uv_count];
+} UVBlock;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+} UnkVertexObject;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    uint staticVertexCount <bgcolor=CL_SINGLEVALUE>;
+    StaticVerticesCount = staticVertexCount;
+    
+    uint sceneNumberB <bgcolor=CL_SINGLEVALUE>;
+    
+    ushort unkColorCount <bgcolor=CL_SINGLEVALUE>;
+    ushort uvIndicesCount <bgcolor=CL_SINGLEVALUE>;
+    
+    uint sizeOfMainSection <bgcolor=CL_SINGLEVALUE, comment="Size of ???">;
+    
+    ushort sectorCount <bgcolor=CL_SINGLEVALUE>;
+    ushort thirtyObjectCount <bgcolor=CL_SINGLEVALUE>;
+    
+    uint zero <bgcolor=CL_PADDING>;
+    
+    ushort headerObjectCount <bgcolor=CL_SINGLEVALUE, comment="??? Objects">;
+    
+    ushort zero <bgcolor=CL_PADDING>;
+    
+    ushort preMatObjectCount <bgcolor=CL_SINGLEVALUE>;
+    ushort materialCount <bgcolor=CL_SINGLEVALUE>;
+    
+    uint zero <bgcolor=CL_PADDING>;
+    uint zero <bgcolor=CL_PADDING>;
+    
+    RelativeOffset polyMaskOffset(0) <bgcolor=CL_POINTER, comment="Offset of polygon masks">;
+    
+    uint magic <bgcolor=CL_SINGLEVALUE>;
+    
+    uint zeros[4] <bgcolor=CL_PADDING>;
+    
+    if (headerObjectCount)
+        HeaderObjectInfo headerObjectInfos[headerObjectCount] <bgcolor=0xAAFFFF>;
+        
+    if (thirtyObjectCount)
+        ThirtyObjectInfo thirtyObjectInfos[thirtyObjectCount] <bgcolor=0x99EEEE>;
+        
+    SkipTo(32);
+    
+    local uint l;
+    
+    if (headerObjectCount)
+    {
+        for (l=0; l<headerObjectCount; l++)
+            HeaderObject headerObjects(headerObjectInfos[l].object_size) <bgcolor=0xFFCCFF>;
+    }
+    
+    SkipTo(32);
+    
+    if (thirtyObjectCount)
+    {
+        for (l=0; l<thirtyObjectCount; l++)
+            ThirtyObject thirtyObjects(thirtyObjectInfos[l].object_size) <bgcolor=0xFFFFCC>;
+    }
+    
+    if (thirtyObjectCount)  
+        SectorInfo sectorInfos[thirtyObjectCount] <bgcolor=0xCCCC99>;
+    
+    SkipTo(32);
+    
+    if (preMatObjectCount)
+        PreMatObject preMatObjects[preMatObjectCount] <bgcolor=0x77AA77>;
+    
+    SkipTo(32);
+    
+    if (materialCount)
+        Material materials[materialCount] <optimize=false, bgcolor=0x99CC99>;
+        
+    // TODO: LOOK AT SCENE FILES
+    if (staticVertexCount)
+        Vec3 static_vertices[staticVertexCount] <bgcolor=0x99BB99>;
+        
+    if (sceneNumberB)
+        SectorColor colors[sceneNumberB] <bgcolor=0x88AA88>;
+        
+    if (unkColorCount)
+        SectorColor unkColors[unkColorCount] <bgcolor=0xFFAAAA>;
+        
+    if (uvIndicesCount)
+        UVBlock uvs(uvIndicesCount) <bgcolor=0xCC99CC>;
+        
+    SkipTo(32);
+    
+    if (sectorCount)
+        Sector sector[sectorCount] <optimize=false>;
+    
+    if (polyMaskOffset.offset > 0)
+    {
+        FSeek(AbsOffset(polyMaskOffset));
+        ubyte polyMasks[16] <bgcolor=0xAAAAFF>;
+    }
+} SkinFile;
+
+// ----------------------------------------------------------------------------------------
+
+typedef struct
+{
+    ubyte data[64];
+} PS2ObjectA;
+
+typedef struct
+{
+    ubyte data[80];
+} PS2ObjectB;
+
+typedef struct
+{
+    uint version <bgcolor=CL_SINGLEVALUE>;
+    uint count_a <bgcolor=CL_SINGLEVALUE>;
+    uint count_b <bgcolor=CL_SINGLEVALUE>;
+    
+    RelativeOffset polyMaskOffset(0) <bgcolor=CL_POINTER>;
+    
+    float floats[4] <bgcolor=CL_PARSED>;
+    
+    QBKey checksum <bgcolor=CL_CHECKSUM>;
+    
+    uint val_a <bgcolor=CL_SINGLEVALUE>;
+    uint val_b <bgcolor=CL_SINGLEVALUE>;
+    
+    QBKey constant_maybe <bgcolor=CL_CHECKSUM>;
+    
+    if (count_a)
+        PS2ObjectA objects_a[count_a] <bgcolor=0xFFAAAA>;
+        
+    if (count_b)
+        PS2ObjectB objects_b[count_b] <bgcolor=0xAAFFAA>;
+    
+    FSeek(AbsOffset(polyMaskOffset));
+    ubyte polyMasks[16] <bgcolor=0xAAAAFF>;
+} PS2SkinFile;
+
+// ----------------------------------------------------------------------------------------
+
+// Read first 4 bytes to determine platform.
+// PS2 seems(?) to always be the same.
+
+BigEndian();
+
+if (ReadInt() == 0x01000000)
+{
+    LittleEndian();
+    PS2SkinFile file;
+}
+else
+    SkinFile file;

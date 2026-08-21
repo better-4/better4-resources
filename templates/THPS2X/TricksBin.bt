@@ -1,0 +1,82 @@
+//------------------------------------------------
+// Tricks.bin file (THPS2-THPS4 PSX)
+//------------------------------------------------
+
+#include "../Common.bt"
+
+// Defined internally?
+#define MAX_GRIND_TRICKS 208
+
+enum <ushort> TrickButton
+{
+    BUT_DPAD_UP = 0x01,
+    BUT_DPAD_DOWN = 0x02,
+    BUT_DPAD_LEFT = 0x03,
+    BUT_DPAD_RIGHT = 0x04,
+    BUT_DPAD_UPLEFT = 0x05,
+    BUT_DPAD_UPRIGHT = 0x06,
+    BUT_DPAD_DOWNRIGHT = 0x07,
+    BUT_DPAD_DOWNLEFT = 0x08,
+    BUT_CIRCLE = 0x09,
+    BUT_SQUARE = 0x0A,
+    BUT_TRIANGLE = 0x0C
+};
+
+typedef struct
+{
+    ushort pointer <bgcolor=CL_SINGLEVALUE>;
+    
+    local uint old_off = FTell();
+    FSeek(pointer);
+    ubyte val <bgcolor=CL_SINGLEVALUE>;
+    FSeek(old_off);
+} GrindTrick;
+
+typedef struct
+{
+    ushort numButtons;
+    TrickButton buttons[numButtons];
+    ushort pointerA;
+    ushort pointerB;
+    
+    local uint old_off = FTell();
+    
+    FSeek(pointerA);
+    
+    ushort data <bgcolor=0x6666FF>;
+    
+    FSeek(old_off);
+} AllTrick <read=Str("%d buttons, %d, %d", numButtons, pointerA, pointerB)>;
+
+typedef struct
+{
+    ushort UnkTrickPointersA <bgcolor=CL_POINTER>;
+    ushort GrindTrickPointers <bgcolor=CL_POINTER>;
+    ushort UnkTrickPointersB <bgcolor=CL_POINTER>;
+    ushort OriginalTrickData <bgcolor=CL_POINTER>;
+    ushort GTricksKeys <bgcolor=CL_POINTER>;
+    ushort GAllTricks <bgcolor=CL_POINTER>;
+    ushort pointerG <bgcolor=CL_POINTER>;
+    
+    FSeek(GAllTricks);
+    AllTrick allTrick[596] <bgcolor=CL_PARSED, optimize=false>;
+    
+    FSeek(GrindTrickPointers);
+    local uint l;
+    
+    for (l=0; l<MAX_GRIND_TRICKS; l++)
+    {
+        GrindTrick grind_tricks <optimize=false>;
+    }
+    
+    ushort GrindTrickPointers_Data[208] <bgcolor=CL_POINTER>;
+    
+    FSeek(OriginalTrickData);
+    ubyte OriginalTrickData_Data[1024] <bgcolor=CL_PARSED>;
+    
+    FSeek(GTricksKeys);
+    ubyte GTricksKeys_Data[1024] <bgcolor=CL_PARSED>;
+} TricksBinFile;
+
+LittleEndian();
+TricksBinFile file;

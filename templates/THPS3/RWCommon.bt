@@ -1,0 +1,50 @@
+//------------------------------------------------
+// Common values. Not canonically named.
+//------------------------------------------------
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} RwRGBA <read=Str("R: %d, G: %d, B: %d, A: %d", r, g, b, a)>;
+
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+} RwVec3 <read=Str("(%f, %f, %f)", x, y, z)>;
+
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+    float w;
+} RwVec4 <read=Str("(%f, %f, %f, %f)", x, y, z, w)>;
+
+//------------------------------------------------
+
+string ReadTH3Alpha(ubyte value)
+{
+    if (value == 0x44)
+        return "BLEND";
+    if (value == 0x68)
+        return "ADDITIVE";
+    if (value == 0x42)
+        return "SUBTRACT";
+        
+    return Str("%d", value);
+}
+
+typedef struct
+{
+    ubyte value;
+} TH3Alpha1 <read=Str("%s", ReadTH3Alpha(value))>;
+
+typedef struct
+{
+    uint value;
+} TH3Alpha4 <read=Str("%s", ReadTH3Alpha(value))>;

@@ -1,0 +1,468 @@
+//------------------------------------------------
+// Big Guns .TRG File - Contains trigger
+// information and all scripting info for a level
+//------------------------------------------------
+
+#include "../Common.bt"
+#include "TRGCommon.bt"
+#include "TRGCommands.bt"
+
+enum <ushort> TRGSubVersion
+{
+    TRG_THPS = 0,
+    TRG_SPIDERMAN = 1
+};
+
+local int nextNodeOffset = -1;
+local TRGSubVersion currentTRGVersion;
+ubyte IsTHPS() { return (currentTRGVersion == TRG_THPS); }
+
+enum <ushort> TRGTerrain
+{
+    T_CONC = 0,
+    T_TILE = 1,
+    T_WOOD = 2,
+    T_DIRT = 3,
+    T_ASPHALT = 4,
+    T_GRASS = 5,
+    T_WATER = 6,
+    T_CHAINLINK = 7,
+    T_BRICK = 8,
+    T_METALPOLE = 9,
+    T_GENERIC1 = 10,
+    T_GENERIC2 = 11,
+    T_METAL = 12,
+    T_ROCK = 13,
+    T_GRAVEL = 14,
+    T_SIDEWALK = 15
+};
+
+enum <ushort> TRGNodeType
+{
+    BADDY = 0x01,
+    CRATE = 0x02,
+    POINT = 0x03,
+    AUTOEXEC = 0x04,
+    POWERUP = 0x05,
+    COMMANDPOINT = 0x06,
+    SEEDABLEBADDY = 0x07,
+    RESTART = 0x08,
+    BARREL = 0x09,
+    RAILDEF = 0x0A,
+    RAILPOINT = 0x0B,
+    TRICKOB = 0x0C,
+    CAMPT = 0x0D,
+    GOALOB = 0x0E,
+    AUTOEXEC2 = 0x0F,
+    MYST = 0x10,
+    TERMINATOR = 0xFF,
+    LIGHT = 0x01F4,
+    OFFLIGHT = 0x01F5,
+    SCRIPTPOINT = 0x03E8,
+    CAMERAPATH = 0x03E9
+};
+
+string NodeTypeString(TRGNodeType type)
+{
+    local string enumStr = EnumToString(type);
+    
+    if (enumStr == "")
+        enumStr = Str("UNKNOWN (%d)", type);
+        
+    return enumStr;
+}
+
+// ==================================================
+// AUTOEXEC: Call this when the level starts.
+// ==================================================
+
+typedef struct
+{
+    TRGCommandBlock commands;
+} TRGNode_AUTOEXEC <read=ReadTRGNode_AUTOEXEC>;
+
+string ReadTRGNode_AUTOEXEC(TRGNode_AUTOEXEC &data)
+{
+    return ReadTRGCommandBlock(data.commands);
+}
+
+// ==================================================
+// RESTART: Restart node for the player or objects
+// ==================================================
+
+typedef struct
+{
+    TRGArray links;
+        
+    SkipTo(4);
+    
+    TRGVector vector <bgcolor=CL_SINGLEVALUE>;
+    TRGAngle angle <bgcolor=CL_SINGLEVALUE>;
+    
+    string name <bgcolor=CL_NAME>;
+    
+    SkipTo(2);
+    
+    TRGCommandBlock commands;
+} TRGNode_RESTART <read=ReadTRGNode_RESTART>;
+
+string ReadTRGNode_RESTART(TRGNode_RESTART &data)
+{
+    return Str("%s: %s, %s, %s", data.name, ReadTRGLinks(data.links), ReadTRGVector(data.vector), ReadTRGAngle(data.angle));
+}
+
+// ==================================================
+// COMMANDPOINT: Seems to be a TRG node
+// tied to a checksum, which should be
+// the checksum of a physical object in the scene.
+//
+// This can be thought of as the object's TriggerScript.
+// ==================================================
+
+typedef struct
+{
+    if (!IsTHPS())
+        return;
+
+    TRGArray links;
+    SkipTo(4);
+    uint checksum <bgcolor=CL_CHECKSUM>;
+    
+    TRGCommandBlock commands;
+} TRGNode_COMMANDPOINT <read=ReadTRGNode_COMMANDPOINT>;
+
+string ReadTRGNode_COMMANDPOINT(TRGNode_COMMANDPOINT &data)
+{
+    if (!IsTHPS())
+        return "???";
+        
+    return Str("0x%08x, %s, %s", data.checksum, ReadTRGLinks(data.links), ReadTRGCommandBlock(data.commands));
+}
+
+// ==================================================
+// RAILDEF: Grindable rail definition?
+// ==================================================
+
+// -- THPS2 --
+//  0: Concrete
+//  1: Metal
+//  2: Wood
+//  3: Metal 2?
+//  4: Nothing
+//  5: Nothing
+//  6: Nothing
+//  7: Nothing
+//  8: Nothing
+//  9: Nothing
+// 10: Nothing
+// 11: Nothing
+
+// -- THPS2X --
+//  0: Concrete
+//  1: Metal
+//  2: Wood
+
+enum <ushort> TRGRailTerrain
+{
+    RT_CONC = 0,
+    RT_METAL = 1,
+    RT_WOOD = 2,
+    RT_METAL2 = 3,
+};
+
+string RailTerrainString(TRGRailTerrain terrain)
+{
+    local string enumStr = EnumToString(terrain);
+    
+    if (enumStr == "")
+        enumStr = Str("RT_%d", terrain);
+        
+    return enumStr;
+}
+
+typedef struct
+{
+    TRGArray links;
+    SkipTo(4);
+    TRGVector pos;
+    ushort flags;
+} TRGNode_RAILDEF <read=ReadTRGNode_RAILDEF>;
+
+string ReadTRGNode_RAILDEF(TRGNode_RAILDEF &data)
+{
+    local string linkString;
+    
+    if (data.links.count == 1)
+        linkString = Str("-> %d", data.links.values[0]);
+    else
+        linkString = "";
+    
+    return Str("%s, %s %s", RailTerrainString(data.flags & 0x0F), ReadTRGVector(data.pos), linkString);
+}
+
+// ==================================================
+// RAILPOINT: Grindable rail ???
+// ==================================================
+
+typedef struct
+{
+    local string unk6;
+    local uint assumed_gap = nextNodeOffset - FTell();
+        
+    switch (assumed_gap)
+    {
+        case 4:
+            unk6 = "THPS2-SKATE_T";
+            break;
+        case 6:
+            unk6 = "THPS1 Prototype";
+            break;
+        case 8:
+            uint unk7;
+            uint unk8;
+            
+            unk6 = Str("THPS1: 0x%08x, 0x%08x", unk7, unk8);
+            break;
+        default:
+            unk6 = "UNK/THPS2";
+            break;
+    }
+} AssumedGap <read=Str("%s", unk6)>;
+
+typedef struct
+{
+    TRGArray links;
+    SkipTo(4);
+    TRGVector pos;
+    ushort unk5;
+    
+    if (nextNodeOffset != -1)
+        AssumedGap gap;
+} TRGNode_RAILPOINT <read=ReadTRGNode_RAILPOINT>;
+
+string ReadTRGNode_RAILPOINT(TRGNode_RAILPOINT &data)
+{
+    local string linkString;
+    
+    if (data.links.count == 1)
+        linkString = Str("-> %d", data.links.values[0]);
+    else
+        linkString = "";
+    
+    return Str("%d, %s %s", data.unk5, ReadTRGVector(data.pos), linkString);
+}
+
+// ==================================================
+// TRICKOB: A trick object
+// ==================================================
+
+typedef struct
+{
+    local uint final_checksum = 0;
+    local uint assumed_gap = nextNodeOffset - FTell();
+    
+    if (assumed_gap == 6)
+    {
+        SkipTo(4);
+        uint checksum;
+        
+        assumed_gap = nextNodeOffset - FTell();
+        
+        if (assumed_gap == 2)
+            ushort v;
+    }
+    else if (assumed_gap > 6)
+    {
+        TRGArray nodes;
+        SkipTo(4);
+        uint checksum;
+        final_checksum = checksum;
+    }
+} TRGNode_TRICKOB <read=ReadTRGNode_TRICKOB>;
+
+string ReadTRGNode_TRICKOB(TRGNode_TRICKOB &data)
+{
+    return Str("0x%08x", data.final_checksum);
+}
+
+// ==================================================
+// SCRIPTPOINT: Point for anything.
+// ==================================================
+
+typedef struct
+{
+    TRGArray links;
+        
+    SkipTo(4);
+
+    TRGVector pos;
+    TRGAngle angle <bgcolor=CL_SINGLEVALUE>;
+    TRGCommandBlock commands;
+} TRGNode_SCRIPTPOINT <read=ReadTRGNode_SCRIPTPOINT>;
+
+string ReadTRGNode_SCRIPTPOINT(TRGNode_SCRIPTPOINT &data)
+{
+    return Str("%s, %s", ReadTRGLinks(data.links), ReadTRGCommandBlock(data.commands));
+}
+
+// ==================================================
+// BADDY: Generic object?
+// ==================================================
+
+enum <ushort> BaddyType
+{
+    ScriptOnlyBaddy = 203,
+    Bouncy = 402,
+};
+
+typedef struct
+{
+    BaddyType baddy_type;       // Baddy type
+    ushort priority;
+    
+    TRGArray links;
+    
+    ushort unk2;
+    ushort unk3;
+    
+    SkipTo(4);
+    TRGVector pos;
+    TRGAngle angles;
+    TRGCommandBlock baddyScript;
+} TRGNode_BADDY <read=ReadTRGNode_BADDY>;
+
+string ReadTRGNode_BADDY(TRGNode_BADDY &data)
+{
+    return Str("%s: %s", EnumToString(data.baddy_type), ReadTRGVector(data.pos));
+}
+
+// -------------------------------------------------------
+
+typedef struct
+{
+    local uint nodePos = FTell();
+    
+    TRGNodeType type <bgcolor=CL_SINGLEVALUE>;
+    
+    switch (type)
+    {
+        case AUTOEXEC:
+        case AUTOEXEC2:
+            TRGNode_AUTOEXEC data;
+            break;
+        case RESTART:
+            TRGNode_RESTART data;
+            break;
+        case RAILDEF:
+            TRGNode_RAILDEF data;
+            break;
+        case RAILPOINT:
+            TRGNode_RAILPOINT data;
+            break;
+        case COMMANDPOINT:
+            TRGNode_COMMANDPOINT data;
+            break;
+        case BADDY:
+            TRGNode_BADDY data;
+            break;
+        case SCRIPTPOINT:
+            TRGNode_SCRIPTPOINT data;
+            break;
+        case TRICKOB:
+            TRGNode_TRICKOB data;
+            break;
+        case TERMINATOR:
+            break;
+        default:
+            Printf("Unhandled node %s at %d (0x%x).\n", NodeTypeString(type), nodePos, nodePos);
+            break;
+    }
+} TRGNode <read=ReadTRGNode>;
+
+string ReadTRGNode(TRGNode &node)
+{
+    local string data = "";
+    local string prefix = Str("%s", NodeTypeString(node.type));
+    
+    switch (node.type)
+    {
+        case AUTOEXEC:
+        case AUTOEXEC2:
+            data = ReadTRGNode_AUTOEXEC(node.data);
+            break;
+        case RESTART:
+            data = ReadTRGNode_RESTART(node.data);
+            break;
+        case RAILDEF:
+            data = ReadTRGNode_RAILDEF(node.data);
+            break;
+        case RAILPOINT:
+            data = ReadTRGNode_RAILPOINT(node.data);
+            break;
+        case COMMANDPOINT:
+            data = ReadTRGNode_COMMANDPOINT(node.data);
+            break;
+        case SCRIPTPOINT:
+            data = ReadTRGNode_SCRIPTPOINT(node.data);
+            break;
+        case BADDY:
+            data = ReadTRGNode_BADDY(node.data);
+            break;
+        case TRICKOB:
+            data = ReadTRGNode_TRICKOB(node.data);
+            break;
+    }
+    
+    return Str("[%s] - %s", prefix, data);
+}
+
+// -------------------------------------------------------
+
+typedef struct
+{
+    local uint final_node_count = 0;
+    
+    char magic[4] <comment="_TRG", bgcolor=CL_SINGLEVALUE>;
+    
+    if (magic != "_TRG")
+    {
+        Printf("Not valid TRG file.");
+        return;
+    }
+    
+    ushort version <bgcolor=CL_SINGLEVALUE>;
+    
+    if (version != 2)
+    {
+        Printf("TRG version %d not supported.", version);
+        return;
+    }
+    
+    TRGSubVersion subversion <bgcolor=CL_SINGLEVALUE>;
+    currentTRGVersion = subversion;
+    
+    uint node_count <bgcolor=CL_SINGLEVALUE>;
+    final_node_count = node_count;
+    
+    if (!node_count)
+        return;
+    
+    uint node_offsets[node_count] <bgcolor=CL_POINTER>;
+    
+    local uint i;
+    
+    for (i=0; i<node_count; i++)
+    {
+        FSeek(node_offsets[i]);
+        
+        if (i == node_count-1)
+            nextNodeOffset = -1;
+        else
+            nextNodeOffset = node_offsets[i+1];
+            
+        TRGNode node;
+    }
+} TRGFile <read=Str("Version %d, %d %s", version, final_node_count, (final_node_count == 1) ? "node" : "nodes")>;
+
+LittleEndian();
+TRGFile file;

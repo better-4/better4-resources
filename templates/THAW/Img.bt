@@ -1,0 +1,375 @@
+//------------------------------------------------
+// THAW .img.wpc file
+//------------------------------------------------
+
+#ifndef NO_STANDALONE_IMG
+#include "../Common.bt"
+#endif
+
+typedef struct
+{
+    ubyte r <bgcolor=CL_SINGLEVALUE>;
+    ubyte g <bgcolor=CL_SINGLEVALUE>;
+    ubyte b <bgcolor=CL_SINGLEVALUE>;
+    ubyte a <bgcolor=CL_SINGLEVALUE>;
+} PaletteColor <read=Str("%d, %d, %d, %d", r, g, b, a)>;
+
+typedef struct
+{
+    uint imageSize <bgcolor=CL_SINGLEVALUE>;
+    
+    if (imageSize)
+        ubyte mip_data[imageSize] <bgcolor=CL_PARSED>;
+    else
+        Printf("No image size at %d\n", FTell() - 4);
+} THImageMipmap;
+
+typedef struct (uint imageSize)
+{
+    ubyte mip_data[imageSize] <bgcolor=CL_PARSED>;
+} THImageMipmap_SetSize;
+
+typedef struct
+{
+    ushort bytesPerLine <bgcolor=CL_SINGLEVALUE>;
+    ushort numLines <bgcolor=CL_SINGLEVALUE>;
+    
+    local uint dataSize = (uint) (bytesPerLine) * (uint) numLines;
+    ubyte data[dataSize] <bgcolor=CL_PARSED>;
+} THUncompressedImageMipmap;
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+typedef struct
+{
+    QBKey magic <comment="ABADDOOD", bgcolor=CL_CHECKSUM>;
+    
+    if (magic.checksum == 0xABADD00D)
+    {
+        ushort format <bgcolor=CL_SINGLEVALUE, comment="Always DXT if 1">;
+        ushort header_size <bgcolor=CL_SINGLEVALUE>;
+        QBKey checksum <bgcolor=CL_PARSED>;
+        ushort BaseWidth <bgcolor=CL_SINGLEVALUE>;
+        ushort BaseHeight <bgcolor=CL_SINGLEVALUE>;
+        ushort ActualWidth <bgcolor=CL_SINGLEVALUE>;
+        ushort ActualHeight <bgcolor=CL_SINGLEVALUE>;
+        ubyte Levels <bgcolor=CL_SINGLEVALUE>;
+        ubyte TexelDepth <bgcolor=CL_SINGLEVALUE>;
+        ubyte DXT <bgcolor=CL_SINGLEVALUE>;
+        ubyte PaletteDepth <bgcolor=CL_SINGLEVALUE>;
+        
+        if (Levels)
+        {
+            if (DXT)
+                THImageMipmap mipmaps[Levels] <optimize=false>;
+            else
+            {
+                if (PaletteDepth == 32)
+                {
+                    uint palette_color_count;
+                    PaletteColor colors[palette_color_count];
+                    
+                    THUncompressedImageMipmap mipmaps[Levels] <optimize=false>;
+                }
+                else if (PaletteDepth)
+                    Printf("%d-bit palette depth not supported yet.\n", PaletteDepth);
+                else
+                    THUncompressedImageMipmap mipmaps[Levels] <optimize=false>;
+            }
+        }
+    }
+    else
+    {
+        local uint start_offset = FTell();
+    
+        ushort version_maybe <bgcolor=CL_SINGLEVALUE>;
+        ushort unkB <bgcolor=CL_SINGLEVALUE>;
+        QBKey checksum <bgcolor=CL_CHECKSUM>;
+        
+        ushort BaseWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+        ushort BaseHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+        ushort ActualWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+        ushort ActualHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+        
+        ubyte Levels <bgcolor=CL_SINGLEVALUE, comment="Mipmap count">;
+        ubyte TexelDepth <bgcolor=CL_SINGLEVALUE, comment="Bits Per Pixel">;
+        ubyte PaletteDepth <bgcolor=CL_SINGLEVALUE, comment="Palette depth?">;
+        ubyte DXT <bgcolor=CL_SINGLEVALUE, comment="Compression level">;
+        
+        uint null <hidden=true, bgcolor=CL_PADDING>;
+        
+        RelativeOffset pTexture(0) <bgcolor=CL_POINTER, comment="Points to texture data, on XBox this is metadata">;
+        uint padding[2] <bgcolor=CL_PADDING, hidden=true>;
+        RelativeOffset pImageData(0) <bgcolor=CL_SINGLEVALUE>;
+        
+        // ------------------------------------
+        
+        local uint old_off = FTell();
+        FSeek(AbsOffset(pTexture));
+        
+        ushort xboxA <bgcolor=CL_SINGLEVALUE>;
+        ushort xboxB <bgcolor=CL_SINGLEVALUE>;
+        
+        FSeek(old_off);
+    }
+        
+} THAWImg <read=Str("[%s] %dx%d, %d mips", ReadQBKey(checksum), BaseWidth, BaseHeight, Levels)>;
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+typedef struct { uint depth; } PS2TexelDepth <read=ReadPS2TexelDepth>;
+
+// There has to be a better way to detect these. Flags?
+uint ResolvePS2TexelDepth(PS2TexelDepth &td)
+{
+    switch (td.depth)
+    {
+        case 0x00:
+            return 32;
+        case 0x01:
+            return 24;
+        case 0x02:
+            return 16;
+        case 0x0A:
+            return 16;
+        case 0x12:
+            return 24;
+        case 0x13:
+            return 8;
+        case 0x14:
+            return 4;
+        case 0x1B:
+            return 8;
+        case 0x24:
+            return 4;
+        case 0x2C:
+            return 4;
+        case 0x30:
+            return 32;
+        case 0x31:
+            return 24;
+        case 0x32:
+            return 16;
+        case 0x3A:
+            return 16;
+        default:
+            printf("Unknown PS2 texel depth %d.\n", td.depth);
+            return 32;
+            break;
+    }
+}
+
+string ReadPS2TexelDepth(PS2TexelDepth &td)
+{
+    return Str("%dbpp", ResolvePS2TexelDepth(td));
+}
+
+typedef struct
+{
+    #ifdef NO_STANDALONE_IMG
+        QBKey checksum <bgcolor=CL_PARSED>;
+        uint BaseWidth <bgcolor=CL_SINGLEVALUE>;
+        uint BaseHeight <bgcolor=CL_SINGLEVALUE>;
+        uint Levels <bgcolor=CL_SINGLEVALUE>;
+        uint TexelDepth <bgcolor=CL_SINGLEVALUE, comment="Depth per pixel">;
+        uint PaletteDepth <bgcolor=CL_SINGLEVALUE, comment="Depth per color">;
+        uint DXT <bgcolor=CL_SINGLEVALUE>;
+        uint PaletteSize <bgcolor=CL_SINGLEVALUE>;
+    #else
+        local uint Levels = 1;
+        local uint PaletteDepth = 0;
+        
+        uint Version <bgcolor=CL_SINGLEVALUE>;
+        uint Unknown <bgcolor=CL_SINGLEVALUE>;
+        
+        uint BaseWidth <bgcolor=CL_SINGLEVALUE>;
+        uint BaseHeight <bgcolor=CL_SINGLEVALUE>;
+        
+        PS2TexelDepth PlatTexelDepth <bgcolor=CL_SINGLEVALUE, comment="Depth per pixel">;
+        local uint TexelDepth = ResolvePS2TexelDepth(PlatTexelDepth);
+        
+        Printf("Texel Depth: %d\n", TexelDepth);
+        
+        uint DXT <bgcolor=CL_SINGLEVALUE, comment="Maybe? Can't find an instance where this is > 0">;
+        ushort ActualWidth <bgcolor=CL_SINGLEVALUE, comment="Original size">;
+        ushort ActualHeight <bgcolor=CL_SINGLEVALUE, comment="Original size">;
+        uint PaletteSize <bgcolor=CL_SINGLEVALUE>;
+    #endif
+    
+    if (Levels)
+    {
+        if (PaletteSize == 0)
+            THImageMipmap mipmaps[Levels] <optimize=false>;
+        else
+        {
+            // Standalone img files are different.
+            
+            #ifndef NO_STANDALONE_IMG
+
+                if (PaletteSize)
+                    PaletteColor colors[ (uint) (PaletteSize / sizeof(PaletteColor)) ];
+                    
+                local uint bytesPerPixel = (uint) (TexelDepth / 8);
+                THImageMipmap_SetSize image_data(BaseWidth * BaseHeight * bytesPerPixel);
+                
+            #else
+            
+                if (PaletteSize)
+                {
+                    // 32BPP paletted image?
+                    if (TexelDepth == 32)
+                    {
+                        uint palette_color_count;
+                        PaletteColor colors[palette_color_count];
+                    }
+                    
+                    // 16 BPP paletted image?
+                    else if (TexelDepth == 16)
+                    {
+                        Printf("Unknown logic for BPP 16.\n");            
+                    }
+                    
+                    // 8BPP paletted image?
+                    else if (TexelDepth == 8)
+                    {
+                        PaletteColor colors[PaletteSize / 4];
+                        THImageMipmap mipmaps[Levels];
+                    }
+                }
+                else
+                    THUncompressedImageMipmap mipmaps[Levels] <optimize=false>;
+                
+            #endif
+        }
+    }
+} THUG2Img <read=ReadTHUG2Img>;
+
+string ReadTHUG2Img(THUG2Img &img)
+{
+    #ifdef NO_STANDALONE_IMG
+        local string imgName = ReadQBKey(img.checksum);
+    #else
+        local string imgName = "0x00000000";
+    #endif
+        
+    return Str("[%s] %dx%d, %d mips, %s", imgName, img.BaseWidth, img.BaseHeight, img.Levels, (img.DXT > 0) ? Str("DXT%d", img.DXT) : "Uncompressed");
+}
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+typedef struct
+{
+    local uint start_offset = FTell();
+    
+    ushort version_maybe <bgcolor=CL_SINGLEVALUE>;
+    ushort unkB <bgcolor=CL_SINGLEVALUE>;
+    QBKey checksum <bgcolor=CL_CHECKSUM>;
+    
+    ushort BaseWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+    ushort BaseHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+    ushort ActualWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+    ushort ActualHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+    
+    ubyte Levels <bgcolor=CL_SINGLEVALUE, comment="Mipmap count">;
+    ubyte TexelDepth <bgcolor=CL_SINGLEVALUE, comment="Bits Per Pixel">;
+    ubyte PaletteDepth <bgcolor=CL_SINGLEVALUE, comment="Palette depth?">;
+    ubyte DXT <bgcolor=CL_SINGLEVALUE, comment="Compression level">;
+    
+    uint null <hidden=true, bgcolor=CL_PADDING>;
+    
+    RelativeOffset pTexture(0) <bgcolor=CL_POINTER, comment="Points to texture data, on XBox this is metadata">;
+    uint padding[2] <bgcolor=CL_PADDING, hidden=true>;
+    RelativeOffset pImageData(0) <bgcolor=CL_SINGLEVALUE>;
+    
+    // ------------------------------------
+    
+    local uint old_off = FTell();
+    FSeek(AbsOffset(pTexture));
+    
+    ushort xboxA <bgcolor=CL_SINGLEVALUE>;
+    ushort xboxB <bgcolor=CL_SINGLEVALUE>;
+    
+    FSeek(old_off);
+} THAWXboxImg <read=Str("[%s] %dx%d, %d mips", ReadQBKey(checksum), BaseWidth, BaseHeight, Levels)>;
+
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+enum <ubyte> WiiImageFormat
+{
+    WIIFMT_RAW = 6,
+    WIIFMT_N64_CMPR = 14
+};
+
+string ReadWiiImageFormat(WiiImageFormat fmt)
+{
+    local string str = EnumToString(fmt);
+    return (str == "") ? "WIIFMT_UNK" :  str;
+}
+
+enum <ubyte> WiiPixelFormat
+{
+    WIIPIX_RAW = 4,
+    WIIPIX_N64_CMPR = 12,
+};
+
+string ReadWiiPixelFormat(WiiPixelFormat fmt)
+{
+    local string str = EnumToString(fmt);
+    return (str == "") ? "WIIPIX_UNK" :  str;
+}
+
+typedef struct
+{
+    uint magic <bgcolor=CL_PADDING, comment="Constant">;
+    uint checksum <bgcolor=CL_CHECKSUM, comment="Texture checksum">;
+    ubyte unkA <bgcolor=CL_SINGLEVALUE>;
+    ubyte unkB <bgcolor=CL_SINGLEVALUE>;
+    ubyte widthExponent <bgcolor=CL_SINGLEVALUE, comment="2 ^ widthExponent">;
+    ubyte heightExponent <bgcolor=CL_SINGLEVALUE, comment="2 ^ heightExponent">;
+    
+    ubyte constA <bgcolor=CL_SINGLEVALUE>;
+    WiiImageFormat format_a <bgcolor=CL_SINGLEVALUE>;
+    WiiPixelFormat format_b <bgcolor=CL_SINGLEVALUE>;
+    
+    ubyte alwaysFour <bgcolor=CL_SINGLEVALUE, comment="ALWAYS seems to be 4, have yet to find where it's not">;
+    
+    uint dataSize <bgcolor=CL_SINGLEVALUE, comment="Size of image data">;
+    RelativeOffset dataStart(0) <bgcolor=CL_POINTER, comment="Offset of image data">;
+    
+    int negOne <bgcolor=CL_PADDING, comment="Always -1, internal texture ref maybe">;
+    
+    uint alwaysZero <bgcolor=CL_PADDING, comment="Always 0">;
+    
+    if (dataSize)
+    {
+        local uint old_off = FTell();
+        
+        FSeek(AbsOffset(dataStart));
+        
+        ubyte data[dataSize] <bgcolor=0xAAFFAA>;
+        
+        FSeek(old_off);
+    }
+} THDJWiiImg <read=ReadTHDJWiiImg>;
+
+string ReadTHDJWiiImg(THDJWiiImg &img)
+{
+    return Str("[%dx%d] %d bytes at %d, %s (%s)", Pow(2, img.widthExponent), Pow(2, img.heightExponent), img.dataSize, AbsOffset(img.dataStart), ReadWiiImageFormat(img.format_a), ReadWiiPixelFormat(img.format_b));
+}
+
+#ifndef NO_STANDALONE_IMG
+LittleEndian();
+local uint test_int = ReadInt();
+
+if (test_int == 0xABADD00D)
+    THAWImg file;
+else if (test_int == 0x00280006)
+    THAWXboxImg file;
+else if (test_int == 0x00002004)
+{
+    BigEndian();
+    THDJWiiImg file;
+}
+else
+    THUG2Img file;
+#endif

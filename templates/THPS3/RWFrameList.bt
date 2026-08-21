@@ -1,0 +1,23 @@
+//------------------------------------------------
+// Frame List data.
+//------------------------------------------------
+
+#define CL_FRAMELIST_VALUE                0x88FF88
+#define CL_FRAMELIST_MATRIX               0x77EE77
+#define CL_FRAMELIST_POS                  0x66DD66
+
+typedef struct
+{
+    float rotation_matrix[8] <bgcolor=CL_FRAMELIST_MATRIX>;
+    float position[4] <bgcolor=CL_FRAMELIST_POS>;
+    int parent_frame <bgcolor=CL_FRAMELIST_VALUE>;
+    int integer <bgcolor=CL_FRAMELIST_VALUE>;
+} RWFrame;
+
+typedef struct
+{
+    int frame_count <bgcolor=CL_FRAMELIST_VALUE>;
+    
+    if (frame_count)
+        RWFrame frames[frame_count] <optimize=false>;
+} RWFrameList;

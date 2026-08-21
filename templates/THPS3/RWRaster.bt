@@ -1,0 +1,135 @@
+//------------------------------------------------
+// Raster image.
+//------------------------------------------------
+
+#define CL_RASTERVALUE                  0xAAFFCC
+
+enum <ubyte> RasterFilterMode
+{
+    FILTER_NONE = 0x00,
+    FILTER_NEAREST = 0x01,
+    FILTER_LINEAR = 0x02,
+    FILTER_MIP_NEAREST = 0x03,
+    FILTER_MIP_LINEAR = 0x04,
+    FILTER_LINEAR_MIP_NEAREST = 0x05,
+    FILTER_LINEAR_MIP_LINEAR = 0x06
+};
+
+typedef struct
+{
+    ubyte value;
+} RasterUVAddressing <read=Str("%d, %d", (value >> 4) & 0x0F, (value & 0x0F))>;
+
+typedef struct
+{
+    local string finalName;
+    
+    RasterFilterMode filterMode <bgcolor=CL_RASTERVALUE>;
+    RasterUVAddressing addressing <bgcolor=CL_RASTERVALUE>;
+    ushort padding <hidden=true, bgcolor=CL_RASTERVALUE>;
+    char name[128] <bgcolor=CL_RASTERVALUE>;
+    char maskName[128] <bgcolor=CL_RASTERVALUE>;
+    
+    finalName = name;
+} TextureFormat;
+
+typedef struct
+{
+    local string finalName;
+    
+    RasterFilterMode filterMode <bgcolor=CL_RASTERVALUE>;
+    RasterUVAddressing addressing <bgcolor=CL_RASTERVALUE>;
+    ushort padding <hidden=true, bgcolor=CL_RASTERVALUE>;
+    RWSection name(0);
+    RWSection maskName(0);
+    
+    finalName = name.data;
+} TextureFormat_PS2;
+
+typedef struct
+{
+    uint rasterFormat <bgcolor=CL_RASTERVALUE>;
+    uint hasAlphaMaybe <bgcolor=CL_RASTERVALUE>;
+    ushort width;
+    ushort height;
+    ubyte depth;
+    ubyte numLevels;
+    ubyte rasterType;
+    ubyte compression;
+    
+    if (rasterFormat & 0x00002000)
+        RwRGBA palette[256];
+} RasterFormat;
+
+typedef struct 
+{
+    int width;
+    int height;
+    int depth;
+    
+    int unkA;
+    int unkB;
+    int unkC;
+    int unkD;
+    int unkE;
+    
+    int dataSize;
+    ushort unkAA;
+    ushort unkAB;
+    
+    int dataSizeB;
+    ushort unkBA;
+    ushort unkBB;
+    
+    int dataSizeC;
+    ushort unkCA;
+    ushort unkCB;
+    
+    int unkF;
+    int unkG;
+    
+    PendingRasterDataWidth = width;
+    PendingRasterDataHeight = height;
+} RasterFormat_PS2;
+
+typedef struct
+{
+    uint dataSize;
+    
+    if (dataSize)
+        ubyte data[dataSize];
+} RasterData;
+
+typedef struct
+{
+    local ubyte wasPS2 = 0;
+    
+    // Peek ahead and see if this is a PS2 raster.
+    // This uses a very different format from XBox / PC.
+    
+    int platform_id <bgcolor=CL_RASTERVALUE>;
+    
+    if (platform_id == 0x00325350)
+    {
+        wasPS2 = 1;
+        TextureFormat_PS2 fmt;
+        
+        RWSection raster(ST_Raster_PS2Data_Raster);
+        RWSection mipmap(ST_Raster_PS2Data_Image);
+        return;
+    }
+    
+    TextureFormat fmt;
+    RasterFormat raster;
+    
+    if (raster.numLevels)
+        RasterData mipmaps[raster.numLevels] <optimize=false>;
+} RWRaster <read=ReadRWRaster>;
+
+string ReadRWRaster(RWRaster &rw_raster)
+{
+    if (rw_raster.wasPS2)
+        return "PS2 raster (WIP)";
+        
+    return Str("%s (%dx%d), %dBPP, %d mips, DXT%d", rw_raster.fmt.name, rw_raster.raster.width, rw_raster.raster.height, rw_raster.raster.depth, rw_raster.raster.numLevels, rw_raster.raster.compression);
+}

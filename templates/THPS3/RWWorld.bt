@@ -1,0 +1,21 @@
+//------------------------------------------------
+// World data.
+//------------------------------------------------
+
+#define CL_MATERIALVALUE            0xFFDD66
+
+#define WORLDFLAG_FACE_UNK          0x00000010
+
+typedef struct
+{
+    uint unk;
+    float floats_a[3];
+    float floats_b[3];
+    uint num_polygons;
+    uint num_vertices;
+    uint num_meshes;
+    uint num_meshes_plus;
+    uint zero;
+    uint flags;
+    CurrentWorldFlags = flags;
+} RWWorld;

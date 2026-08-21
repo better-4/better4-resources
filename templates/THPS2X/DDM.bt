@@ -1,0 +1,142 @@
+//------------------------------------------------
+// THPS2X .DDM file - Contains materials
+//------------------------------------------------
+
+#include "../Common.bt"
+
+#define DDM_MATFLAG_ADDITIVE                            0x01        // Skylight in SS
+#define DDM_MATFLAG_ALPHACUTOFF                         0x02        // Leaves in SS
+
+// Vadru:
+// fake 3d grass. It uses textures grass[a-g][**] where a-g depends on grass type 
+// and ** is the grass layer. The grass is always 16 layers starting from 00.
+
+#define DDM_MESHFLAG_FAKEGRASS                          0x0E        // 0x02: A, 0x04: B, 0x06: C?, 0x08: Blue
+
+#define DDM_MESHFLAG_PLANTHACK                          0x20        // Flowers (Venice), becomes bright and wibbles
+#define DDM_MESHFLAG_SHADOWUNK                          0x80        // ??? (Venice)
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} RGBA <read=Str("%d, %d, %d, %d", r, g, b, a)>;
+
+typedef struct
+{
+    Vec3 pos;
+    Vec3 nrm;
+    RGBA vc;
+    float uvX;
+    float uvY;
+} DDMVertex <read=Str("%s, %s", ReadVec3(pos), ReadVec3(nrm))>;
+
+typedef struct
+{
+    char name[64];
+    char texture[64];
+    int texture_index_in_psx;
+    RGBA blend;
+    float unks[3];
+    uint flags;
+} DDMMaterial;
+
+typedef struct
+{
+    ushort material_index;
+    ushort indices_offset;
+    ushort indices_count;
+} DDMMeshMatMapping <read=Str("[Mat %d] %d indices at %d", material_index, indices_count, indices_offset)>;
+
+typedef struct
+{
+    uint flags;
+} DDMMeshFlags <read=ReadDDMMeshFlags>;
+
+string ReadDDMMeshFlags(DDMMeshFlags &mflags)
+{
+    local string sep = "";
+    local string res = "";
+    
+    if (mflags.flags & DDM_MESHFLAG_FAKEGRASS)
+    {
+        res = Str("%s%sDDM_MESHFLAG_FAKEGRASS", res, sep);
+        sep = " | ";
+    }
+
+    if (mflags.flags & DDM_MESHFLAG_PLANTHACK)
+    {
+        res = Str("%s%sDDM_MESHFLAG_PLANTHACK", res, sep);
+        sep = " | ";
+    }
+
+    if (mflags.flags & DDM_MESHFLAG_SHADOWUNK)
+    {
+        res = Str("%s%sDDM_MESHFLAG_SHADOWUNK", res, sep);
+        sep = " | ";
+    }
+
+    if (res == "" && mflags.flags)
+        return Str("0x%08x", mflags.flags);
+
+    return res;
+}
+
+typedef struct
+{
+    int mesh_index;
+    QBKey checksum;
+    Vec2 anim_speed;
+    float unknown;
+    uint unkA;
+    DDMMeshFlags flags;
+    char name[64];
+    float floats[3];
+    Vec3 bounding_sphere;
+    float bounding_sphere_radius;
+    int material_count_a;
+    int vertex_count;
+    int face_indices_count;
+    int material_count_b;
+    
+    DDMMaterial mats[material_count_a];
+    
+    DDMVertex vertices[vertex_count];
+    short indices[face_indices_count];
+    
+    if (material_count_a)
+        DDMMeshMatMapping mat_mapping[material_count_a];
+} DDMMesh <read=ReadDDMMesh>;
+
+string ReadDDMMesh(DDMMesh &mesh)
+{
+    return Str("%s: %s - %s", ReadQBKey(mesh.checksum), mesh.name, ReadDDMMeshFlags(mesh.flags));
+}
+
+typedef struct
+{
+    RelativeOffset offset(0) <bgcolor=CL_POINTER>;
+    uint size <bgcolor=CL_SINGLEVALUE>;
+    
+    if (size)
+    {
+        local uint old_off = FTell();
+        FSeek(AbsOffset(offset));
+        DDMMesh mesh <bgcolor=0xAAAAAA>;
+        FSeek(old_off);
+    }
+} DDMEntry <read=Str("%d: %d bytes - %s, %s - %s", AbsOffset(offset), size, (size > 0) ? ReadQBKey(mesh.checksum) : "---", size > 0 ? mesh.name : "---", ReadDDMMeshFlags(mesh.flags))>;
+
+typedef struct
+{
+    uint version;
+    uint fileSize;
+    uint meshCount;
+    
+    DDMEntry entry[meshCount] <optimize=false>;
+} DDMFile;
+
+LittleEndian();
+DDMFile file;

@@ -1,0 +1,149 @@
+//------------------------------------------------
+// THPS3 material plugin info.
+//------------------------------------------------
+
+#define TH3_NORENDER                    0x0200
+#define TH3_TRANSDOUBLESIDED            0x0800
+#define TH3_HASBLENDMODEALPHA           0x1000
+
+// Not exactly sure about these, here's what I've seen:
+//      Rio_CG_Sul_concrete_01          0x00            Opaque                                                                      0x0000          123
+//      cracks01_32                     0x42            Subtractive             TH3_TRANSDOUBLESIDED | TH3_HASBLENDMODEALPHA        0x1801          66
+//      cracks02b_32                    0x42            Subtractive             TH3_TRANSDOUBLESIDED | TH3_HASBLENDMODEALPHA
+//      la_dt_chainlink01a_32           0x44            Blend? Cutoff?          TH3_TRANSDOUBLESIDED
+//      Rio_CG_Int_Weeds_01             0x44            Blend? Cutoff?          TH3_TRANSDOUBLESIDED | TH3_HASBLENDMODEALPHA        0x1801          123      
+//      Rio_CG_Street_weed_01_32        0x44            Blend? Cutoff?          TH3_TRANSDOUBLESIDED | TH3_HASBLENDMODEALPHA        0x1801          123
+//      Rio_CG_Int_Palm_fron_01         0x44            Blend? Cutoff?          TH3_TRANSDOUBLESIDED                                0x0801          123
+//      Rio_CG_Int_Decal_Planter_02_32  0x62            Subtractive (Fixed)     TH3_TRANSDOUBLESIDED | TH3_HASBLENDMODEALPHA        0x1801          15
+//      Rio_CG_Int_Decal_WaxStreak_01   0x62            Subtractive (Fixed)     TH3_TRANSDOUBLESIDED | TH3_HASBLENDMODEALPHA        0x1801          60
+//      SK_Ros_D_silo02                 0x64            Blend?                  TH3_TRANSDOUBLESIDED
+//      ROS_MLS_Lamp02                  0x68            Additive                TH3_TRANSDOUBLESIDED
+//      ROS_MLS_Lamp02_1                0x68            Additive                TH3_TRANSDOUBLESIDED | TH3_HASBLENDMODEALPHA
+//      Ros_EF_ARlaserflick01           0x68            Additive                TH3_TRANSDOUBLESIDED | TH3_HASBLENDMODEALPHA
+
+#define BMALPHA_SUBTRACT                0x42
+#define BMALPHA_SUBTRACT_B              0x62
+#define BMALPHA_ADDITIVE                0x68
+
+enum <ubyte> TH3MaterialSound
+{
+    TERRAIN_DEFAULT = 0,
+    TERRAIN_CONCSMOOTH = 1,
+    TERRAIN_CONCROUGH = 2,
+    TERRAIN_METALSMOOTH = 3,
+    TERRAIN_MEATALSMOOTH = 3,
+    TERRAIN_METALROUGH = 4,
+    TERRAIN_METALCORRUGATED = 5,
+    TERRAIN_METALGRATING = 6,
+    TERRAIN_METALTIN = 7,
+    TERRAIN_WOOD = 8,
+    TERRAIN_WOODMASONITE = 9,
+    TERRAIN_WOODPLYWOOD = 10,
+    TERRAIN_WOODFLIMSY = 11,
+    TERRAIN_WOODSHINGLE = 12,
+    TERRAIN_WOODPIER = 13,
+    TERRAIN_BRICK = 14,
+    TERRAIN_TILE = 15,
+    TERRAIN_ASPHALT = 16,
+    TERRAIN_ROCK = 17,
+    TERRAIN_GRAVEL = 18,
+    TERRAIN_SIDEWALK = 19,
+    TERRAIN_GRASS = 20,
+    TERRAIN_GRASSDRIED = 21,
+    TERRAIN_DIRT = 22,
+    TERRAIN_DIRTPACKED = 23,
+    TERRAIN_WATER = 24,
+    TERRAIN_ICE = 25,
+    TERRAIN_SNOW = 26,
+    TERRAIN_SAND = 27,
+    TERRAIN_PLEXIGLASS = 28,
+    TERRAIN_FIBERGLASS = 29,
+    TERRAIN_CARPET = 30,
+    TERRAIN_CONVEYOR = 31,
+    TERRAIN_CHAINLINK = 32,
+    TERRAIN_METALFUTURE = 33,
+    TERRAIN_GENERIC1 = 34,
+    TERRAIN_GENERIC2 = 35,
+    TERRAIN_WHEELS = 36,
+    TERRAIN_WETCONC = 37,
+    TERRAIN_METALFENCE = 38,
+    TERRAIN_GRINDTRAIN = 39,
+    TERRAIN_GRINDROPE = 40
+};
+
+typedef struct
+{
+    ushort value;
+} THPS3BlendFlags <read=ReadBlendFlags>;
+
+string ReadBlendFlags(THPS3BlendFlags &flags)
+{
+    local string s;
+    local string sep = "";
+
+    if (flags.value & TH3_NORENDER)
+    {
+        s = Str("%s%sTH3_NORENDER", s, sep);
+        sep = " | ";
+    }
+    
+    if (flags.value & TH3_TRANSDOUBLESIDED)
+    {
+        s = Str("%s%sTH3_TRANSDOUBLESIDED", s, sep);
+        sep = " | ";
+    }
+    
+    if (flags.value & TH3_HASBLENDMODEALPHA)
+    {
+        s = Str("%s%sTH3_HASBLENDMODEALPHA", s, sep);
+        sep = " | ";
+    }
+    
+    return s;
+}
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} THPS3RGBA <read=Str("%d, %d, %d, %d", r, g, b, a)>;
+
+typedef struct
+{
+    float x;
+    float y;
+} THPS3Vec2 <read=Str("(%f, %f)", x, y)>;
+
+typedef struct
+{
+    uint material_index;
+    ubyte skip[12];
+    
+    ubyte hasPropertiesMaybeA;
+    ubyte hasPropertiesMaybeB;
+    
+    THPS3BlendFlags some_blend_flags;             // 8: Alpha cutoff?
+    
+    // Not sure what this is, seems to cut data off early. (SI.DFF)
+    // This also seems to cut important info like UV wibble off. What?
+    
+    if (!hasPropertiesMaybeA)
+        return;
+    
+    TH3MaterialSound sound;                       // Sound that this material plays
+    THPS3RGBA pass_blends[4] <comment="For pass 0, the color from RWMaterial is used">;
+    ubyte alpha;
+    ubyte skipA[3];
+    uint partial_alpha <comment="Used on semi-transparent objects?">;
+    ubyte skipB[3];
+    RWSection texture (ST_THPS3_PluginExtension);
+    ubyte is_animated;
+    THPS3Vec2 uv_wibble_velocity;
+    THPS3Vec2 uv_wibble_frequency_maybe;
+    THPS3Vec2 uv_wibble_amplitude_maybe;
+    THPS3Vec2 uv_wibble_phase_maybe;
+    THPS3Vec2 uv_wibble_scale_maybe;
+    THPS3Vec2 uv_wibble_rotation_maybe;
+} RWTHPS3MaterialInfo;

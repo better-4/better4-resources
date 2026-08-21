@@ -1,0 +1,52 @@
+import bpy
+
+name_list = [
+    # THUG2-source
+    ['1','ValveBiped.Bip01_Pelvis'],
+    ['2','ValveBiped.Bip01_Spine'],
+    ['3','ValveBiped.Bip01_Spine2'],
+    ['4','ValveBiped.Bip01_Spine4'],
+    ['5','ValveBiped.Bip01_L_Clavicle'],
+    ['6','ValveBiped.Bip01_L_UpperArm'],
+    ['7','ValveBiped.Bip01_L_Forearm'],
+    ['8','ValveBiped.Bip01_L_Hand'],
+    ['9','ValveBiped.Bip01_L_Finger2'],
+    ['10','ValveBiped.Bip01_L_Finger21'],
+    ['11','ValveBiped.Bip01_L_Finger1'],
+    ['12','ValveBiped.Bip01_L_Finger11'],
+    ['13','ValveBiped.Bip01_L_Finger0'],
+    ['14','Delete'],
+    ['15','delete2'],
+    ['16','ValveBiped.Bip01_R_Clavicle'],
+    ['17','ValveBiped.Bip01_R_UpperArm'],
+    ['18','ValveBiped.Bip01_R_Forearm'],
+    ['19','ValveBiped.Bip01_R_Hand'],
+    ['20','ValveBiped.Bip01_R_Finger1'],
+    ['21','ValveBiped.Bip01_R_Finger11'],
+    ['22','ValveBiped.Bip01_R_Finger2'],
+    ['23','ValveBiped.Bip01_R_Finger21'],
+    ['24','ValveBiped.Bip01_R_Finger0'],
+    ['25','delete3'],
+    ['26','delete4'],
+    ['27','ValveBiped.Bip01_Neck1'],
+    ['28','ValveBiped.Bip01_Head1'],
+    ['29','delete5'],
+    ['30','delete6'],
+    ['34','delete8'],
+    ['35','delete9'],
+    ['36','delete10'],
+    ['37','ValveBiped.Bip01_R_Thigh'],
+    ['38','ValveBiped.Bip01_R_Calf'],
+    ['39','ValveBiped.Bip01_R_Foot'],
+    ['40','ValveBiped.Bip01_R_Toe0'],
+    ['41','ValveBiped.Bip01_L_Thigh'],
+    ['42','ValveBiped.Bip01_L_Calf'],
+    ['43','ValveBiped.Bip01_L_Foot'],
+    ['44','ValveBiped.Bip01_L_Toe0'],
+
+]
+
+v_groups = bpy.context.active_object.vertex_groups
+for n in name_list:
+    if n[0] in v_groups:
+        v_groups[n[0]].name = n[1]

@@ -1,0 +1,407 @@
+//------------------------------------------------
+// THPS2DC / THPS2X BON format
+//------------------------------------------------
+
+#include "PSXCommon.bt"
+
+local uint TotalVerts = 0;
+
+enum EBonFileVersion
+{
+    BON_DREAMCAST = 1,
+    BON_XBOX_UNK = 3,       // C_Taxi.bon (THPS2X)
+    BON_XBOX = 4
+};
+
+local EBonFileVersion BonVersion;
+
+#define CL_BONNAME         0x66FFFF
+
+LittleEndian();
+
+typedef struct
+{
+    float x;
+    float y;
+} BONVec2 <read=Str("(%f, %f)", x, y)>;
+
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+} BONVec3 <read=Str("(%f, %f, %f)", x, y, z)>;
+
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+    float w;
+} BONVec4 <read=Str("(%f, %f, %f, %f)", x, y, z, w)>;
+
+typedef struct
+{
+    BONVec3 rows[4];
+} BONMatrix;
+
+typedef struct
+{
+    if (BonVersion == BON_XBOX || BonVersion == BON_XBOX_UNK)
+        ushort string_length;
+    else
+        ubyte string_length;
+
+    char text[string_length];
+} BONString <read=ReadBONString>;
+
+string ReadBONString(BONString &str)
+{
+    return str.text;
+}
+
+typedef struct
+{
+    char magic[4];
+    uint always_eight;
+    uint global_index;
+    uint junk;
+} GBIXHeader;
+
+// https://fabiensanglard.net/Mykaruga/tools/segaPVRFormat.txt
+enum <ubyte> PVRPixelFormat
+{
+    PVR_ARGB1555 = 0x00,
+    PVR_RGB565 = 0x01,
+    PVR_ARGB4444 = 0x02,
+    PVR_YUV442 = 0x03,
+    PVR_BUMP = 0x04,
+    PVR_4BIT = 0x05,
+    PVR_8BIT = 0x06
+};
+
+enum <ubyte> PVRImageDataType
+{
+    PVRDT_UNK = 0x00,
+    PVRDT_SQUARE_TWIDDLED = 0x01,
+    PVRDT_SQUARE_TWIDDLED_MIPMAP = 0x02,
+    PVRDT_VQ = 0x03,
+    PVRDT_VQ_MIPMAP = 0x04,
+    PVRDT_8BIT_CLUT_TWIDDLE = 0x05,
+    PVRDT_4BIT_CLUT_TWIDDLE = 0x06,
+    PVRDT_8BIT_DIRECT_TWIDDLE = 0x07,
+    PVRDT_4BIT_DIRECT_TWIDDLE = 0x08,
+    PVRDT_RECTANGLE = 0x09,
+    PVRDT_UNK_2 = 0x0A,
+    PVRDT_RECTANGULAR_STRIDE = 0x0B,
+    PVRDT_UNK_3 = 0x0C,
+    PVRDT_RECTANGULAR_TWIDDLE = 0x0D,
+    PVRDT_UNK_4 = 0x0E,
+    PVRDT_UNK_5 = 0x0F,
+    PVRDT_SMALL_VQ = 0x10,
+    PVRDT_SMALL_VQ_MIPMAP = 0x11,
+    PVRDT_SQUARE_TWIDDLE_MIPMAP = 0x12
+};
+
+typedef struct
+{
+    GBIXHeader header;
+    char magic[4];
+    uint length <comment="minus 24">;
+    PVRPixelFormat pixel_format;
+    PVRImageDataType data_format;
+    ushort zero;
+    ushort width;
+    ushort height;
+} PVRTexture <read=ReadPVRTexture>;
+
+string ReadPVRTexture(PVRTexture &tex)
+{
+    local string s;
+
+    return SPrintf(s, "(%dx%d)", tex.width, tex.height);
+}
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} RGBA <read=Str("%d, %d, %d, %d", r, g, b, a)>;
+
+typedef struct
+{
+    BONString name <bgcolor=CL_BONNAME>;
+    
+    if (BonVersion == BON_XBOX || BonVersion == BON_XBOX_UNK)
+    {
+        RGBA color;
+        float floats[2] <bgcolor=CL_PARSED>;
+        ubyte has_texture <bgcolor=CL_PARSED>;
+    }
+    else
+    {
+        float floats[7] <bgcolor=CL_PARSED>;
+        ubyte unknown <bgcolor=CL_PARSED>;
+        ubyte has_texture <bgcolor=CL_PARSED>;
+    }
+
+    BONString path <bgcolor=CL_BONNAME>;
+    
+    ubyte always_one <bgcolor=CL_SINGLEVALUE>;
+    ushort unk <bgcolor=CL_SINGLEVALUE>;
+    
+    uint filesize <bgcolor=CL_SINGLEVALUE>;
+
+    local uint dataStart = FTell();
+
+    if (BonVersion == BON_XBOX || BonVersion == BON_XBOX_UNK)
+        ubyte dds_file[filesize] <bgcolor=0xFF66FF>;
+    else
+        PVRTexture dc_texture;
+
+    FSeek(dataStart + filesize);
+} BONImage <read=ReadBONImage>;
+
+string ReadBONImage(BONImage &img)
+{
+    if (BonVersion == BON_XBOX || BonVersion == BON_XBOX_UNK)
+        return Str("%s - %s", ReadBONString(img.name), ReadBONString(img.path));
+    else
+        return Str("%s - %s - %s", ReadBONString(img.name), ReadBONString(img.path), ReadPVRTexture(img.dc_texture));
+}
+
+typedef struct
+{
+    if (BonVersion == BON_XBOX_UNK)
+        ushort texture_count <bgcolor=CL_SINGLEVALUE>;
+    else
+        uint texture_count <bgcolor=CL_SINGLEVALUE>;
+
+    BONImage texture[texture_count] <optimize=false>;
+} BONTextureBlock;
+
+// --------------------------------------------------------
+
+typedef struct
+{
+    Vec3 pos_maybe;
+    Vec3 norm_maybe;
+    Vec3 zero_vec;
+    float one;
+    Vec2 uv_maybe;
+    float one_b;
+} BONMesh_Vertex;
+
+typedef struct
+{
+    ushort texture_index;
+    uint indices_count;
+    ushort indices[indices_count];
+} BONMesh_SubMesh <read=ReadSubMesh>;
+
+string ReadSubMesh(BONMesh_SubMesh &sub)
+{
+    local string s;
+    
+    return SPrintf(s, "Tex Index %d, %d indices", sub.texture_index, sub.indices_count);
+}
+
+typedef struct
+{
+    Vec3 vec_a;
+    Vec3 vec_b;
+    uint vertex_count;
+    BONMesh_Vertex vertices[vertex_count] <bgcolor=0xffffaa>;
+    uint submesh_count;
+    BONMesh_SubMesh submesh[submesh_count] <bgcolor=0xeeee99, optimize=false>;
+} BONMesh <read=ReadBONMesh>;
+
+string ReadBONMesh(BONMesh &mesh)
+{
+    local string s;
+
+    return SPrintf(s, "%d vertices, %d submeshes", mesh.vertex_count, mesh.submesh_count);
+}
+
+// --------------------------------------------------------
+
+typedef struct
+{
+    float unk_val;
+    float floats[10];
+} BONChunker;
+
+struct BONObject;
+
+typedef struct
+{
+    ubyte object_constant <bgcolor=CL_SINGLEVALUE, comment="Always 177">;
+    BONString obj_name <bgcolor=CL_BONNAME>;
+    ubyte subtype_maybe <bgcolor=CL_SINGLEVALUE>;
+
+    uint chunker_count;
+    BONChunker chunkers[chunker_count];
+
+    uint child_count;
+
+    if (child_count > 0)
+        BONObject child[child_count] <optimize=false>;
+
+    BONMesh mesh_data;
+
+} BONObject <read=ReadBONObject>;
+
+string ReadBONObject(BONObject &obj)
+{
+    return Str("%s - Subtype %d, %d children", ReadBONString(obj.obj_name), obj.subtype_maybe, obj.child_count);
+}
+
+struct BONObjectXBox;
+struct BONObjectSubmesh;
+
+typedef struct
+{
+    short texture_index;
+    ushort face_index_offset;
+    ushort face_index_count;
+    
+    Printf("%d face indices at %d\n", face_index_count, face_index_offset);
+} BONObjectSubmesh <read=Str("Tex Index %d, %d indices at %d", texture_index, face_index_count, face_index_offset)>;
+
+typedef struct
+{
+    Vec3 position <bgcolor=0xAAAAFF, comment="Maybe?">;
+    Vec3 bounds_min <bgcolor=0xAAAAFF>;
+    Vec3 bounds_max <bgcolor=0xAAAAFF>;
+    
+    ushort primary_mesh_count <bgcolor=0xAAAAFF>;
+    if (primary_mesh_count)
+        BONObjectSubmesh primary_mesh[primary_mesh_count] <optimize=false>;
+        
+    ushort secondary_mesh_count;
+    if (secondary_mesh_count)
+        BONObjectSubmesh secondary_mesh[secondary_mesh_count] <optimize=false>;
+        
+} BONObjectThing;
+
+typedef struct
+{
+    ubyte object_constant <bgcolor=CL_SINGLEVALUE, comment="Always 177">;
+    BONString obj_name <bgcolor=CL_BONNAME>;
+    
+    BONMatrix matrix;
+    ushort child_count;
+    
+    if (child_count)
+        BONObjectXBox children[child_count] <optimize=false>;
+
+    BONObjectThing data;
+} BONObjectXBox <read=ReadBONObjectXBox>;
+
+string ReadBONObjectXBox(BONObjectXBox &obj)
+{
+    return Str("%s", ReadBONString(obj.obj_name));
+}
+
+// --------------------------------------------------------
+
+typedef struct
+{
+    if (BonVersion == BON_XBOX_UNK)
+        ushort object_count <bgcolor=CL_SINGLEVALUE>;
+    else
+        uint object_count <bgcolor=CL_SINGLEVALUE>;
+
+    if (BonVersion == BON_DREAMCAST)
+        BONObject objects[object_count] <optimize=false>;
+    else
+        BONObjectXBox objects[object_count] <optimize=false>;
+} BONObjectBlock;
+
+typedef struct (uint size)
+{
+    local uint nextPos = FTell() + size;
+    
+    if (nextPos - FTell() >= 16)
+        BONVec4 pos;
+        
+    if (nextPos - FTell() >= 12)
+        BONVec3 norm;
+        
+    if (nextPos - FTell() >= 4)
+        RGBA color;
+        
+    if (nextPos - FTell() >= 8)
+        BONVec2 uv;
+
+    if (nextPos - FTell())
+        ubyte bytes[nextPos - FTell()] <bgcolor=CL_PARSED>;
+} BONVertex <read=Str("(%f, %f, %f)", pos.x, pos.y, pos.z)>;
+
+typedef struct
+{
+    if (BonVersion == BON_XBOX_UNK)
+    {
+        ushort vertex_count;
+        ushort vertex_stride;
+    }
+    else
+    {
+        uint vertex_count;
+        uint vertex_stride;
+    }
+    
+    local uint i;
+    
+    for (i=0; i<vertex_count; i++)
+        BONVertex vertex(vertex_stride);
+} BONVertexBlock;
+
+// ---------------------------------------------
+
+typedef struct
+{
+    if (version == BON_XBOX_UNK)
+        ushort indices_count <bgcolor=0xFFAAAA>;
+    else
+        uint indices_count <bgcolor=0xFFAAAA>;
+    
+    ushort indices[indices_count] <bgcolor=0xFFAAAA>;
+} BONFaceBlock <read=Str("%d face indices", indices_count)>;
+
+// ---------------------------------------------
+
+typedef struct
+{
+    char magic[4] <bgcolor=CL_CHECKSUM>;
+    EBonFileVersion version <bgcolor=CL_SINGLEVALUE>;
+    BonVersion = version;
+    
+    if (version == BON_DREAMCAST)
+        Printf("Dreamcast .bon file.\n");
+    else if (version == BON_XBOX || version == BON_XBOX_UNK)
+        Printf("THPS2X .bon file.\n");
+    else
+    {
+        Printf("Unknown BON version %d.\n", version);
+        return;
+    }
+
+    BONTextureBlock tex_block;
+    
+    // Dreamcast files store data sequentially in objects.
+    if (BonVersion == BON_DREAMCAST)
+        BONObjectBlock obj_block;
+        
+    // TH2X files store data in a centralized block.
+    else
+    {
+        BONVertexBlock vert_block;
+        BONFaceBlock face_block;
+        BONObjectBlock obj_block;
+    }
+} BONFile;
+
+BONFile file;

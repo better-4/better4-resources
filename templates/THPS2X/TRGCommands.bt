@@ -1,0 +1,700 @@
+//------------------------------------------------
+// TRG commands.
+//------------------------------------------------
+
+local ubyte endCurrentCommandList = 0;
+local uint thisBlockCommandCount = 0;
+
+enum <short> TRGVariableType
+{
+    V_HEALTH					= 0x2100,
+    V_COLLISION_RADIUS			= 0x2101,
+    V_PATTERN					= 0x2114,
+    V_SUBPATTERN				= 0x2115,
+    V_REGISTER					= 0x2120,
+    V_ANIM_SPEED				= 0x2121,
+    V_GROUND_TO_ORIGIN			= 0x2122,
+    V_APPLY_GRAVITY				= 0x2123,
+    V_MODEL						= 0x2124,
+    V_ATTRIBUTE					= 0x2125,
+    V_WEAPON_ATTRIBUTE			= 0x2126,
+    V_ANGULAR_VELOCITY			= 0x2127,
+    V_ANGULAR_ACCELERATION		= 0x2128,
+    V_RANDOM					= 0x2129,
+    V_MY_NODE					= 0x212A,
+    V_LINKED_NODE				= 0x212B,
+    V_INPUT_SIGNAL				= 0x212C,	 
+    V_INPUT_HIT					= 0x212D,
+    V_VERTICAL_COMPLIANCE		= 0x212E,
+    V_MODEL_CHECKSUM			= 0x212F,	// V_MODEL_CHECKSUM( dword c ) sets mModel from supplied checksum.
+    V_USER_DATA					= 0x2130,	// V_USER_DATA( num, ... ) has the first parameter indicate the number
+										    // of data items, followed by the data ietms.
+    V_ALLOW_WATER_CLIP			= 0x2131,	// V_ALLOW_WATER_CLIP( n ) allows water clipping (n = 0 disallows).
+    V_BRUCE_XZ_DIST				= 0x2132,	// V_BRUCE_XZ_DIST() returns XA distance to Bruce.
+    V_BRUCE_LINEOFSIGHT			= 0x2133,	// V_BRUCE_LINEOFSIGHT() returns 1 if Bruce is visible, 0 otherwise.
+    V_VELOCITY					= 0x2134,	// V_VELOCITY( x, y, z ).
+    V_DEAD_CHECKSUM				= 0x2135,	// V_DEAD_CHECKSUM( dword c ) causes the object to switch to this model on death.
+    V_VIDEO_FRAME				= 0x2136,	// V_VIDEO_FRAME() returns current video frame.
+    V_ANGLES					= 0x2137,
+    
+    V_MY_X_POS					= 0x2140,
+    V_MY_Y_POS					= 0x2141,
+    V_MY_Z_POS					= 0x2142,
+    
+    V_BRUCE_X_POS				= 0x2150,
+    V_BRUCE_Y_POS				= 0x2151,
+    V_BRUCE_Z_POS				= 0x2152,
+    
+    V_NOT_TROD_UPON_TIMER		= 0x2200,
+    
+    V_FAN_RADIUS				= 0x2300,	// V_FAN_RADIUS( radius ).
+    V_WIND_MAGNITUDE			= 0x2301,	// V_WIND_MAGNITUDE( mag, logdist ).
+};
+
+ubyte IsTRGVariable(short num)
+{
+    local TRGVariableType vt = num;
+
+    if (EnumToString(vt) != "")
+        return 1;
+
+    return 0;
+}
+
+string VariableString(TRGVariableType varType)
+{
+    local string enumStr = EnumToString(varType);
+    
+    if (enumStr == "")
+        enumStr = Str("%d", varType);
+        
+    return enumStr;
+}
+
+struct TRGVariable;
+
+typedef struct
+{
+    TRGVariableType type;
+
+    switch (type)
+    {
+        case V_RANDOM:
+            ushort random_amount;
+            break;
+
+        case V_REGISTER:
+            ushort register;
+            break;
+
+        case V_LINKED_NODE:
+            TRGVariable node;
+            break;
+    }
+} TRGVariable <read=ReadTRGVariable>;
+
+string ReadTRGVariable(TRGVariable &var)
+{
+    local string ret = VariableString(var.type);
+
+    switch (var.type)
+    {
+        case V_RANDOM:          return Str("%s: %d", ret, var.random_amount);
+        case V_REGISTER:        return Str("%s %d", ret, var.register);
+        case V_LINKED_NODE:     return Str("%s: %s", ret, ReadTRGVariable(var.node));
+    }
+
+    return ret;
+}
+
+// -------------------------------------------------------
+
+enum <ushort> TRGCommandType
+{
+    SetCheatRestarts = 2,
+    SendPulse = 3,
+    SendActivate = 4,
+    SendSuspend = 5,
+    SendSignal = 10,
+    SendKill = 11,
+    SendKillLoudly = 12,
+    SetFoggingParams = 104,
+    SpoolIn_2 = 126,
+    SpoolIn = 128,
+    SendInitialPulses = 134,
+    SetRestart = 140,
+    SetVisibilityInBox = 141,
+    SetObjFile = 142,
+    SetGameLevel = 147,
+    KillBruce = 152,
+    SetReverbType = 157,
+    SetOTPushback = 166,
+    SetOTPushback2 = 169,
+    BackgroundCreate = 171,
+    SetRestart2 = 178,
+    SetFadeColor = 200,
+    GapPolyHit = 201,
+    SetSkyColor = 202,
+    EndCommandList = 65535,
+
+    C_DONE = 0x4100,
+    C_GOTO = 0x4101,
+    C_GOTO_BREAK = 0x4102,
+    C_LABEL = 0x4104,
+    C_READ_LABELS = 0x4105,
+    C_SET_SCRIPT_NODE = 0x4106,
+    C_BREAK = 0x4107,
+    C_ADD = 0x4110,
+    C_SUB = 0x4111,
+    C_IF_GT = 0x4112,
+    C_IF_LT = 0x4113,
+    C_IF_EQ = 0x4114,
+    C_IF_FLAG_SET = 0x4115,
+    C_IF_FLAG_CLEAR = 0x4116,
+    C_ENDIF = 0x4120,
+
+    C_DIE_QUIETLY = 0x4205,
+    C_MOVE_TO_NODE = 0x4221,
+
+    C_WAIT = 0x4280,
+    C_WAIT_FOR_SIGNAL = 0x4281,
+
+    C_PLAY_SFX = 0x4290,
+    C_PLAY_POSITIONAL_SFX = 0x4291,
+    C_SPARK = 0x4292,
+    C_SET_FMV_CHECKSUM = 0x4293,
+    C_START_FMV = 0x4294,
+    C_STOP_FMV = 0x4295,
+    C_MIDI_FADE_IN = 0x4296,
+    C_MIDI_FADE_OUT = 0x4297,
+    C_SHAKE_CAMERA = 0x4298,
+    C_SET_FMV_TRACK = 0x4299,
+    C_EXPLODE_NODE = 0x429A,
+    C_SMOKEJET_ON = 0x429B,
+    C_FLASH_SCREEN = 0x429C,
+
+    C_SEND_PULSE_TO_LINKS = 0x42B2,
+    C_SEND_SIGNAL_TO_NODE = 0x42B3,
+    C_SEND_PULSE_TO_NODE = 0x42B4,
+
+    C_GOALCOUNTER = 0x42C0,
+
+    C_SHATTER = 0x4301,
+    C_IS_BOUNCY = 0x4309,
+
+    C_PLAY_LOOPING_SFX = 0x4507,
+    C_PLAY_LOOPING_POSITIONAL_SFX = 0x4508,
+    C_STOP_LOOPING_SFX = 0x4509
+};
+
+string CommandTypeString(TRGCommandType type)
+{
+    local string enumStr = EnumToString(type);
+    
+    if (enumStr == "")
+        enumStr = Str("UNKNOWN (%d)", type);
+        
+    return enumStr;
+}
+
+// -------------------------------------------------------
+
+typedef struct
+{
+    TRGVariable var;
+
+    switch (var.type)
+    {
+        case V_MODEL_CHECKSUM:
+            SkipTo(4);
+            QBKey model_checksum;
+            break;
+
+        case V_ATTRIBUTE:
+            TRGVariable a;
+            TRGVariable b;
+            break;
+
+        case V_LINKED_NODE:
+            TRGVariable node;
+            break;
+        
+        case V_REGISTER:
+            TRGVariable value;
+            break;
+
+        case V_ANGULAR_VELOCITY:
+            TRGVariable x;
+            TRGVariable y;
+            TRGVariable z;
+            break;
+
+        case V_VELOCITY:
+            TRGVariable x;
+            TRGVariable y;
+            TRGVariable z;
+            break;
+    
+        case V_APPLY_GRAVITY:
+            ushort should_apply;
+            break;
+
+        default:
+            Printf("Unhandled SetVariable for var %s at %d (%x)", ReadTRGVariable(var), FTell(), FTell());
+            endCurrentCommandList = 1;
+            break;
+    }
+} SetVariable <read=ReadSetVariable>;
+
+string ReadSetVariable(SetVariable &sv)
+{
+    local string ret = ReadTRGVariable(sv.var);
+
+    switch (sv.var.type)
+    {
+        case V_MODEL_CHECKSUM:          return Str("%s = %s", ret, ReadQBKey(sv.model_checksum));
+        case V_ATTRIBUTE:               return Str("%s %s = %s", ret, ReadTRGVariable(sv.a), ReadTRGVariable(sv.b));
+        case V_ANGULAR_VELOCITY:        return Str("%s = (%s, %s, %s)", ret, ReadTRGVariable(sv.x), ReadTRGVariable(sv.y), ReadTRGVariable(sv.z));
+        case V_VELOCITY:                return Str("%s = (%s, %s, %s)", ret, ReadTRGVariable(sv.x), ReadTRGVariable(sv.y), ReadTRGVariable(sv.z));
+        case V_APPLY_GRAVITY:           return Str("%s %s", ret, sv.should_apply ? "ON" : "OFF");
+        case V_REGISTER:                return Str("%s = %s", ret, ReadTRGVariable(sv.value));
+    }
+
+    return ret;
+}
+
+// -------------------------------------------------------
+
+enum <ushort> CShakeCameraType
+{
+    SMALL = 0,
+    MEDIUM = 1,
+    BIG = 2,
+};
+
+typedef struct
+{
+    string str <bgcolor=CL_NAME>;
+    SkipTo(2);
+} CheatRestart <read=Str("%s", str)>;
+
+typedef struct
+{
+    local uint length = 0;
+
+    while (true)
+    {
+        CheatRestart restart;
+        length ++;
+
+        if (restart.str == "")
+            break;
+    }
+    
+} CheatRestarts;
+
+typedef struct
+{
+    SkipTo(4);
+    int x1;
+    int y1;
+    int z1;
+    int x2;
+    int y2;
+    int z2;
+} VisibilityBox <read=ReadVisibilityBox>;
+
+string ReadVisibilityBox(VisibilityBox &box)
+{
+    return Str("(%d, %d, %d), (%d, %d, %d)", box.x1, box.y1, box.z1, box.x2, box.y2, box.z2);
+}
+
+typedef struct
+{
+    local uint commandPos = FTell();
+    
+    thisBlockCommandCount ++;
+    TRGCommandType type;
+    
+    switch (type)
+    {
+        // 0x02
+        case SetCheatRestarts:
+            CheatRestarts restartList;
+            break;
+            
+        // 0x03
+        case SendPulse:
+            break;
+            
+        // 104
+        case SetFoggingParams:
+            ushort ZHither;
+            ushort DpqMin;
+            ushort Range;
+            break;
+            
+        // 126, 128, 140, 142
+        case SpoolIn_2:
+        case SpoolIn:
+        case SetRestart:
+        case SetObjFile:
+            string name;
+            SkipTo(2);
+            break;
+
+        // 141:
+        case SetVisibilityInBox:
+        {
+            local uint box_count = 0;       // For Read() func
+
+            ushort inside_or_outside;
+            ushort on_or_off;
+
+            local ushort tester = ReadShort();
+
+            while (tester != 255)
+            {
+                VisibilityBox boxes;
+                tester = ReadShort();
+                box_count ++;
+            }
+
+            FSkip(2);           // Skip terminator
+
+            break;
+        }
+            
+        // 147
+        case SetGameLevel:
+            short index;
+            break;
+            
+        // 152
+        case KillBruce:
+            break;
+            
+        // 157
+        case SetReverbType:
+            ushort reverb_type;
+            break;
+            
+        // 166
+        case SetOTPushback:
+            ushort amount;
+            break;
+            
+        // 169
+        case SetOTPushback2:
+            ushort amount;
+            break;
+            
+        // 171
+        case BackgroundCreate:
+            SkipTo(4);
+            uint checksum;
+            ushort unk2;
+            ushort unk3;
+            ushort unk4;
+            break;
+            
+        // 178
+        case SetRestart2:
+            string name;
+            SkipTo(2);
+            break;
+        
+        // 0x134
+        case SendInitialPulses:
+            ushort unk;
+            break;
+            
+        // 200, 202
+        case SetFadeColor:
+        case SetSkyColor:
+            ushort hi;
+            ushort lo;
+            break;
+            
+        // 201
+        case GapPolyHit:
+            SkipTo(4);
+            uint gapID <format=hex>;
+            ushort gapIndex;
+            break;
+
+        case C_FLASH_SCREEN:
+            ushort r;
+            ushort g;
+            ushort b;
+            ushort duration;
+            ushort sort;
+            break;
+
+        case C_PLAY_POSITIONAL_SFX:
+        case C_PLAY_SFX:
+        case C_PLAY_LOOPING_SFX:
+            ushort sfx_id;
+            break;
+
+        case C_PLAY_LOOPING_POSITIONAL_SFX:
+            ushort sfx_id;
+            ushort u;
+            break;
+
+        case C_SEND_SIGNAL_TO_NODE:
+            ushort node_id;
+            break;
+
+        case C_SEND_PULSE_TO_NODE:
+            ushort node_id;
+            break;
+
+        case C_SHAKE_CAMERA:
+            CShakeCameraType shake_type;
+            break;
+
+        case C_SEND_PULSE_TO_LINKS:
+            TRGVariable var;
+            break;
+
+        case C_SPARK:
+            ushort n;
+            break;
+        
+        case C_LABEL:
+        case C_GOTO_BREAK:
+        case C_GOTO:
+            ushort label;
+            break;
+
+        case C_SET_FMV_CHECKSUM:
+            QBKey checksum;
+            break;
+
+        case C_WAIT:
+            TRGVariable n <comment="pauses script processing for 'n' Logic() calls">;
+            break;
+
+        case C_MOVE_TO_NODE:
+            TRGVariable dst;
+            break;
+
+        case C_ADD:
+        case C_IF_EQ:
+            TRGVariable var;
+            short val;
+            break;
+
+        case C_IF_FLAG_CLEAR:
+            TRGVariable var;
+            break;
+            
+        // 65535
+        case EndCommandList:
+        case C_DONE:
+            endCurrentCommandList = 1;
+            break;
+
+        case SendKill:
+        case SendKillLoudly:
+        case SendSuspend:
+        case C_ENDIF:
+        case C_DIE_QUIETLY:
+        case C_READ_LABELS:
+        case C_START_FMV:
+        case C_WAIT_FOR_SIGNAL:
+        case C_STOP_LOOPING_SFX:
+        case C_SHATTER:
+        case C_IS_BOUNCY:
+            break;
+
+        case C_GOALCOUNTER:
+            ushort goal;
+            break;
+
+        case C_SET_FMV_TRACK:
+            ushort trackToSet;
+            break;
+            
+        default:
+            endCurrentCommandList = 1;
+            Printf("  Unhandled command %s at %d (0x%x).\n", CommandTypeString(type), commandPos, commandPos);
+            break;
+        
+    }
+} TRGCommand <read=ReadTRGCommand>;
+
+// -------------------------------------------------------
+
+string ReadTRGCommand(TRGCommand &cmd)
+{
+    local string data = "";
+    local string prefix = Str("%s", CommandTypeString(cmd.type));
+    
+    switch (cmd.type)
+    {
+        case SendInitialPulses:
+            data = Str("%d", cmd.unk);
+            break;
+            
+        case SetFoggingParams:
+            data = Str("(ZHither=%d, DpqMin=%d, Range=%d)", cmd.ZHither, cmd.DpqMin, cmd.Range);
+            break;
+            
+        case SetOTPushback:
+        case SetOTPushback2:
+            data = Str("%d", cmd.amount);
+            break;
+            
+        case SetRestart:
+        case SetRestart2:
+        case SpoolIn_2:
+        case SpoolIn:
+        case SetObjFile:
+            data = cmd.name;
+            break;
+        
+        case SetReverbType:
+            data = Str("%d", cmd.reverb_type);
+            break;
+
+        case SetVisibilityInBox:
+            data = Str("%s in %d box(es)", cmd.on_or_off ? "ON" : "OFF", cmd.box_count);
+            break;
+        
+        case SetFadeColor:
+        case SetSkyColor:
+            data = Str("Hi: %d, Lo: %d", cmd.hi, cmd.lo);
+            break;
+            
+        case SetGameLevel:
+            data = Str("Level %d", cmd.index);
+            break;
+            
+        case BackgroundCreate:
+            data = Str("(0x%08x, %d, %d, %d)", cmd.checksum, cmd.unk2, cmd.unk3, cmd.unk4);
+            break;
+            
+        case GapPolyHit:
+            data = Str("(0x%08x, %d)", cmd.gapID, cmd.gapIndex);
+            break;
+
+        case C_FLASH_SCREEN:
+            data = Str("(%d, %d, %d), duration=%d, sort=%d", cmd.r, cmd.g, cmd.b, cmd.duration, cmd.sort);
+            break;
+
+        case C_PLAY_POSITIONAL_SFX:
+        case C_PLAY_SFX:
+        case C_PLAY_LOOPING_SFX:
+            data = Str("SFX %d", cmd.sfx_id);
+            break;
+
+        case C_PLAY_LOOPING_POSITIONAL_SFX:
+            data = Str("SFX %d, %d", cmd.sfx_id, cmd.u);
+            break;
+
+        case C_SEND_SIGNAL_TO_NODE:
+        case C_SEND_PULSE_TO_NODE:
+            data = Str("Node %d", cmd.node_id);
+            break;
+
+        case C_WAIT:
+            data = Str("%s Logic() calls", ReadTRGVariable(cmd.n));
+            break;
+
+        case C_ADD:
+        case C_IF_EQ:
+            data = Str("%s %d", ReadTRGVariable(cmd.var), cmd.val);
+            break;
+
+        case C_IF_FLAG_CLEAR:
+            data = Str("%s", ReadTRGVariable(cmd.var));
+            break;
+
+        case C_MOVE_TO_NODE:
+            data = Str("%s", ReadTRGVariable(cmd.dst));
+            break;
+            
+        case KillBruce:
+        case SendPulse:
+        case SendSuspend:
+        case EndCommandList:
+        case SendKillLoudly:
+        case C_READ_LABELS:
+        case C_START_FMV:
+        case C_SET_FMV_TRACK:
+        case C_DONE:
+        case C_WAIT_FOR_SIGNAL:
+        case C_STOP_LOOPING_SFX:
+        case C_ENDIF:
+        case C_SHATTER:
+        case C_DIE_QUIETLY:
+        case C_IS_BOUNCY:
+            data = "";
+            break;
+
+        case C_GOALCOUNTER:
+            data = Str("Goal %d", cmd.goal);
+            break;
+
+        case C_SPARK:
+            data = Str("%d", cmd.n);
+            break;
+
+        case C_SEND_PULSE_TO_LINKS:
+            data = Str("%s", ReadTRGVariable(cmd.var));
+            break;
+
+        case C_LABEL:
+        case C_GOTO_BREAK:
+        case C_GOTO:
+            data = Str("Label %d", cmd.label);
+            break;
+
+        case C_SET_FMV_CHECKSUM:
+            data = ReadQBKey(cmd.checksum);
+            break;
+
+        case C_SHAKE_CAMERA:
+            data = EnumToString(cmd.shake_type);
+            break;
+
+        case SetCheatRestarts:
+            data = Str("%d restart(s)", cmd.restartList.length);
+            break;
+            
+        default:
+            data = "???";
+            break;
+    }
+    
+    return Str("[%s] %s", prefix, data);
+}
+
+// -------------------------------------------------------
+
+typedef struct
+{
+    local short varTest;
+    local uint numCommands = 0;
+    thisBlockCommandCount = 0;
+    endCurrentCommandList = 0;
+    
+    while (!endCurrentCommandList)
+    {
+        varTest = ReadShort();
+
+        if (IsTRGVariable(varTest))
+            SetVariable command;
+        else
+            TRGCommand command;
+    }
+    
+    numCommands = thisBlockCommandCount;
+} TRGCommandBlock <read=ReadTRGCommandBlock>;
+
+string ReadTRGCommandBlock(TRGCommandBlock &block)
+{
+    return Str("%d %s", block.numCommands, (block.numCommands == 1) ? "command" : "commands");
+}

@@ -1,0 +1,50 @@
+//------------------------------------------------
+// Common things for TRG's.
+//------------------------------------------------
+
+typedef struct
+{
+    int x;
+    int y;
+    int z;
+} TRGVector <read=ReadTRGVector>;
+
+string ReadTRGVector(TRGVector &v)
+{
+    return Str("(%f, %f, %f)", v.x, v.y, v.z);
+}
+
+typedef struct
+{
+    short x;
+    short y;
+    short z;
+} TRGAngle <read=ReadTRGAngle>;
+
+string ReadTRGAngle(TRGAngle &v)
+{
+    return Str("(%f, %f, %f)", v.x / 2048.0, v.y / 2048.0, v.z / 2048.0);
+}
+
+typedef struct
+{
+    ushort count <bgcolor=CL_SINGLEVALUE>;
+    
+    if (count)
+    {
+        if (count > 500)
+            Printf("Array with %d elements is PROBABLY NOT RIGHT.\n", count);
+        else
+            ushort values[count] <bgcolor=CL_SINGLEVALUE>;
+    }
+} TRGArray <read=ReadTRGArray>;
+
+string ReadTRGArray(TRGArray &array)
+{
+    return Str("%d %s", array.count, (array.count == 1) ? "item" : "items");
+}
+
+string ReadTRGLinks(TRGArray &array)
+{
+    return Str("%d %s", array.count, (array.count == 1) ? "link" : "links");
+}

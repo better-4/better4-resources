@@ -1,0 +1,12 @@
+//------------------------------------------------
+// THPS3 clump info.
+//------------------------------------------------
+
+#define CL_CLUMPINFO_CONSTANT           0x997777
+#define CL_CLUMPINFO_CHECKSUM           0xDDBBBB
+
+typedef struct
+{
+    uint unk <bgcolor=CL_CLUMPINFO_CONSTANT>;
+    QBKey checksum <bgcolor=CL_CLUMPINFO_CHECKSUM, comment="QBKey checksum for object">;
+} RWTHPS3ClumpInfo;

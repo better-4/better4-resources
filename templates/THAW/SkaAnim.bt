@@ -1,0 +1,906 @@
+// .ska anim file (THAW)
+
+#include "../Common.bt"
+#include "Constants.bt"
+
+//------------------------------------------------
+
+#define SKAVERSION_THAW                     0
+#define SKAVERSION_THUG2                    1
+#define SKAVERSION_THPS3                    2
+
+#define CL_ANIMHEADER_FILESIZE              0x88FFFF
+#define CL_ANIMHEADER_OFFSET_A              0x88EEFF
+#define CL_ANIMHEADER_OFFSET_B              0x88DDFF
+#define CL_ANIMHEADER_OFFSET_C              0x88CCFF
+#define CL_ANIMHEADER_OFFSET_D              0x88BBFF
+
+#define CL_BONEHEADER_VERSION               0xFFFFAA
+#define CL_BONEHEADER_FLAGS                 0xEEEEAA
+#define CL_BONEHEADER_DURATION              0xDDDDAA
+
+#define CL_UNKVALUES                        0xFFCCFF
+#define CL_UNKOFFSETS                       0xFFFFCC
+#define CL_UNKOFFSETS_BAD                   0xEEEEBB
+
+local ubyte SkaFileVersion = SKAVERSION_THAW;
+
+local ubyte skaSkipAfterQuat = 0;
+local ubyte skaFloatsCompressed = 1;
+local ubyte skaQuatsCompressed = 1;
+local uint currentSkaFlags;
+local uint currentSkaBone = 0;
+
+//------------------------------------------------
+
+typedef struct (uint bytes)
+{
+    if (bytes > 0)
+        ubyte data[bytes] <bgcolor=CL_FLOATS>;
+    else
+        local ubyte null;
+
+    // Check for DEADDEAD (x360)
+    if (!FEof())
+    {
+        local uint testNum = ReadInt();
+    
+        if (testNum == 0xDEADDEAD)
+            uint DEADDEAD[2] <bgcolor=0x444444, fgcolor=0xAAAAFF>;
+    }
+
+} AnimDataBlock;
+
+//------------------------------------------------
+
+#define CL_QUATFRAME_FLAGTIME               0xAAFFFF
+#define CL_QUATFRAME_X                      0x99EE99
+#define CL_QUATFRAME_Y                      0x88DD88
+#define CL_QUATFRAME_Z                      0x77CC77
+#define CL_QUATFRAME_W                      0x66BB66
+
+#define FLAG_SINGLEBYTEVALUE                0x4000
+
+#define FLAG_SINGLEBYTEX                    0x2000
+#define FLAG_SINGLEBYTEY                    0x1000
+#define FLAG_SINGLEBYTEZ                    0x0800
+#define FLAG_SINGLEBYTEMASK                 0x3800   // XYZ values masked together
+
+typedef struct (ubyte useLongTime)
+{
+    local ushort longFrameTime = 0;
+    
+    // Time is stored as a separate value.
+    if (currentSkaFlags & nxBONEDANIMFLAGS_LONGFRAMETIMES)
+        ushort time <bgcolor=CL_QUATFRAME_FLAGTIME>;
+
+    // Flags and time are a single value
+    ushort flagtime <bgcolor=CL_QUATFRAME_FLAGTIME>;
+     
+    local ubyte usesAltLookupTable = 0;
+    local ubyte usesLookupTable = 0;
+    local ubyte xSize = 2;
+    local ubyte ySize = 2;
+    local ubyte zSize = 2;
+    
+    if (currentSkaFlags & nxBONEDANIMFLAGS_ONLYSINGLEBYTEQUATS)
+    {
+        xSize = 1;
+        ySize = 1;
+        zSize = 1;
+    }
+
+    // At least one of our values is a single-byte value.
+    if (flagtime & FLAG_SINGLEBYTEVALUE)
+    {
+        // We don't have a single X, Y, or Z value.
+        if (!(flagtime & FLAG_SINGLEBYTEMASK))
+        {
+            usesLookupTable = 1;
+            ubyte qTableIndex <bgcolor=CL_QUATFRAME_X>;
+            return;
+        }
+        else
+        {
+            if (currentSkaFlags & nxBONEDANIMFLAGS_USECOMPRESSTABLE_N8)
+                usesAltLookupTable = 1;
+                
+            if (flagtime & FLAG_SINGLEBYTEX)
+                xSize = 1;
+            if (flagtime & FLAG_SINGLEBYTEY)
+                ySize = 1;
+            if (flagtime & FLAG_SINGLEBYTEZ)
+                zSize = 1;
+        }
+    }
+
+    // -- X VALUE --------------
+    if (xSize == 1)
+        ubyte x <bgcolor=CL_QUATFRAME_X>;
+    else
+    {
+        if (skaSkipAfterQuat)
+            SkipTo(2);
+        short x <bgcolor=CL_QUATFRAME_X>;
+    }
+
+    // -- Y VALUE --------------
+    if (ySize == 1)
+        ubyte y <bgcolor=CL_QUATFRAME_Y>;
+    else
+    {
+        if (skaSkipAfterQuat)
+            SkipTo(2);
+        short y <bgcolor=CL_QUATFRAME_Y>;
+    }
+
+    // -- Z VALUE --------------
+    if (zSize == 1)
+        ubyte z <bgcolor=CL_QUATFRAME_Z>;
+    else
+    {
+        if (skaSkipAfterQuat)
+            SkipTo(2);
+        short z <bgcolor=CL_QUATFRAME_Z>;
+    }
+
+    // Skip to nearest 2 bytes regardless
+    if (skaSkipAfterQuat)
+        SkipTo(2);
+
+} QuatFrame <read=ReadQuatFrame>;
+
+string ReadQuatFrame(QuatFrame &frame)
+{
+    local ushort finalTime = (frame.longFrameTime > 0) ? frame.longFrameTime : (frame.flagtime & 0x07FF);
+    
+    if (currentSkaFlags & nxBONEDANIMFLAGS_LONGFRAMETIMES)
+        finalTime = frame.time;
+
+    if (frame.usesLookupTable)
+        return Str("[%d] QKey48 %d", finalTime, frame.qTableIndex);
+    else
+    {
+        local float scaler = 16384.0;
+        
+        local short xVal = frame.x;
+        local short yVal = frame.y;
+        local short zVal = frame.z;
+        
+        if (currentSkaFlags & nxBONEDANIMFLAGS_ONLYSINGLEBYTEQUATS)
+        {
+            xVal = (xVal << 8);
+            yVal = (yVal << 8);
+            zVal = (zVal << 8);
+        }
+        
+        local float qX = xVal / scaler;
+        local float qY = yVal / scaler;
+        local float qZ = zVal / scaler;
+    
+        local float sqX = qX * qX;
+        local float sqY = qY * qY;
+        local float sqZ = qZ * qZ;
+    
+        local float sub = ((1.0 - sqX) - sqY) - sqZ;
+        sub = (sub < 0.0) ? 0.0 : sub;
+        
+        local float qW = Sqrt(sub);
+        
+        if (frame.flagtime & 0x8000)
+            qW = -qW;
+        
+        local string x_str = (frame.usesAltLookupTable && frame.xSize == 1) ? Str("QKey8 %d", frame.x) : Str("%f", qX);
+        local string y_str = (frame.usesAltLookupTable && frame.ySize == 1) ? Str("QKey8 %d", frame.y) : Str("%f", qY);
+        local string z_str = (frame.usesAltLookupTable && frame.zSize == 1) ? Str("QKey8 %d", frame.z) : Str("%f", qZ);
+    
+        if (frame.usesAltLookupTable)
+            return Str("[%d] %s, %s, %s", finalTime, x_str, y_str, z_str);
+        else
+            return Str("[%d] %s, %s, %s [%f]", finalTime, x_str, y_str, z_str, qW);
+    }
+}
+
+typedef struct
+{   
+    uint time <bgcolor=CL_QUATFRAME_FLAGTIME>;
+    float x <bgcolor=CL_QUATFRAME_X>;
+    float y <bgcolor=CL_QUATFRAME_Y>;
+    float z <bgcolor=CL_QUATFRAME_Z>;
+    
+} HiresQuatFrame <read=ReadHiresQuatFrame>;
+
+string ReadHiresQuatFrame(HiresQuatFrame &frame)
+{
+    local float sqX = frame.x * frame.x;
+    local float sqY = frame.y * frame.y;
+    local float sqZ = frame.z * frame.z;
+
+    local float sub = ((1.0 - sqX) - sqY) - sqZ;
+    sub = (sub < 0.0) ? 0.0 : sub;
+    
+    local float qW = Sqrt(sub);
+    
+    return Str("%d: (%f, %f, %f, %f)", frame.time, frame.x, frame.y, frame.z, qW);
+}
+
+// ---------------------------------
+
+typedef struct (uint blockSize)
+{
+    local uint bone_index = currentSkaBone;
+
+    if (blockSize <= 0)
+        return;
+
+    local uint blockStart = FTell();
+
+    local ubyte useLongTime = 0;
+
+    // if (currentSkaFlags & FLAG_USE_FULL_FLAGTIME)
+        // useLongTime = 0;
+
+    while (FTell() < blockStart + blockSize)
+    {
+        if (currentSkaFlags & nxBONEDANIMFLAGS_USECOMPRESSTABLE)
+            QuatFrame frames(useLongTime);
+        else
+            HiresQuatFrame frames();
+    }
+
+    // Ends in DEADDEAD? X360 anims do this
+    if (!FEof())
+    {
+        local ushort testShort = ReadShort();
+        if (testShort == 0xDEAD)
+            ushort dead[4] <bgcolor=0x333333, fgcolor=0x6666FF>;
+    }
+
+} QuatFrameBlock <read=Str("Bone %d", bone_index)>;
+
+//------------------------------------------------
+
+#define CL_TRANSFRAME_FLAGTIME               0xFFBBAA
+#define CL_TRANSFRAME_X                      0xEE9999
+#define CL_TRANSFRAME_Y                      0xDD8888
+#define CL_TRANSFRAME_Z                      0xCC7777
+
+#define FLAG_TRANS_USELOOKUP                 0x80
+
+typedef struct (uint frameIndex, ubyte isFirstBone, ubyte useFloatTime)
+{
+    local float finalTime;
+    local ubyte usesLookupTable = 0;
+
+    if (skaFloatsCompressed)
+    {
+        // First byte contains flagtime, like quats
+        ubyte flagtime <bgcolor=CL_TRANSFRAME_FLAGTIME>;
+        
+        if (flagtime & 0x40)
+            finalTime = flagtime & 0x3F;
+        else
+        {
+            ushort longtime <bgcolor=CL_TRANSFRAME_FLAGTIME>;
+            finalTime = longtime;
+        }
+
+        if (flagtime & FLAG_TRANS_USELOOKUP)
+        {
+            usesLookupTable = 1;
+            ubyte tTableIndex <bgcolor=CL_TRANSFRAME_X>;
+            return;
+        }
+        else
+        {
+            short x <bgcolor=CL_TRANSFRAME_X>;
+            short y <bgcolor=CL_TRANSFRAME_Y>;
+            short z <bgcolor=CL_TRANSFRAME_Z>;
+        }
+    }
+    
+    else
+    {
+        if (useFloatTime)
+        {
+            float longtime <bgcolor=CL_TRANSFRAME_FLAGTIME>;
+            finalTime = longtime;
+        }
+        else
+        {
+            // Before our XYZ, we have a 4-byte number
+        
+            // First byte contains flagtime, like quats
+            ubyte flagtime <bgcolor=CL_TRANSFRAME_FLAGTIME>;
+        
+            // Afterwards, we have our "long time"
+            // This is used if 0x40 not in flagtime
+            ushort longtime <bgcolor=CL_TRANSFRAME_FLAGTIME>;
+        
+            // Always 0, ALWAYS
+            ubyte zero <bgcolor=CL_TRANSFRAME_FLAGTIME>;
+    
+            if (flagtime & 0x40)
+                finalTime = flagtime & 0x3F;
+            else
+                finalTime = longtime;
+        }
+    
+        // Frame 0 of the first bone has values
+        // What are these? No idea
+        if (frameIndex == 0 && isFirstBone)
+            float firstUnk[3];
+    
+        // Now XYZ as floats
+        float x <bgcolor=CL_TRANSFRAME_X>;
+        float y <bgcolor=CL_TRANSFRAME_Y>;
+        float z <bgcolor=CL_TRANSFRAME_Z>;
+    }
+} TransFrame <read=ReadTransFrame>;
+
+string ReadTransFrame(TransFrame &frame)
+{
+    if (frame.usesLookupTable)
+        return Str("[%d] TKey %d", frame.finalTime, frame.tTableIndex);
+    else if (skaFloatsCompressed)
+        return Str("[%d] %f, %f, %f", frame.finalTime, frame.x / 32.0, frame.y / 32.0, frame.z / 32.0);
+    else
+        return Str("[%d] %f, %f, %f", frame.finalTime, frame.x, frame.y, frame.z);
+}
+
+typedef struct
+{
+    uint time <bgcolor=CL_TRANSFRAME_FLAGTIME>;
+    float x <bgcolor=CL_TRANSFRAME_X>;
+    float y <bgcolor=CL_TRANSFRAME_Y>;
+    float z <bgcolor=CL_TRANSFRAME_Z>;
+} HiresTransFrame <read=Str("[%d] %f, %f, %f", time, x, y, z)>;
+
+typedef struct (uint blockSize, ubyte isFirstBone, uint skaFlags)
+{
+    local uint bone_index = currentSkaBone;
+
+    if (blockSize <= 0)
+        return;
+
+    local uint blockStart = FTell();
+    local uint frameCount = 0;
+
+    while (FTell() < blockStart + blockSize)
+    {
+        // if (currentSkaFlags & FLAG_HIRESKEYS)
+        if (false)
+            HiresTransFrame frames();
+        else
+            TransFrame frames(frameCount, isFirstBone, 1);
+
+        frameCount ++;
+    }
+
+} TransFrameBlock <read=Str("Bone %d", bone_index)>;
+
+//------------------------------------------------
+
+typedef struct
+{
+    uint partialBoneCount <bgcolor=CL_SINGLEVALUE>;
+
+    local float flagValCount = partialBoneCount / 32.0;
+    uint bitValues[Ceil(flagValCount)] <bgcolor=CL_SINGLEVALUE>;
+
+} SkaPartialAnimData;
+
+//------------------------------------------------
+
+#define CL_CUSTOMKEY_TIME                   0x77FFFF
+#define CL_CUSTOMKEY_TYPE                   0x77EEFF
+#define CL_CUSTOMKEY_UNK                    0x77DDFF
+#define CL_CUSTOMKEY_VALUE                  0x77CCFF
+
+enum CustomKeyType
+{
+    vUNUSED1 = 0,
+    vCHANGE_FOCAL_LENGTH = 1,
+    vCHANGE_CAMERA_RT = 2,
+    vCHANGE_CAMERA_RT_IGNORE = 3,
+    vRUN_SCRIPT = 4,
+    vCREATE_OBJECT_FROM_STRUCT = 5,
+    vKILL_OBJECT_FROM_STRUCT = 6,
+    vCHANGE_CAMERA_RT_END_KEY = 7,
+};
+
+typedef struct (uint skaFlags)
+{
+    float time <bgcolor=CL_CUSTOMKEY_TIME>;
+    uint active <bgcolor=CL_CUSTOMKEY_TYPE>;
+    CustomKeyType type <bgcolor=CL_CUSTOMKEY_UNK>;
+    float value <bgcolor=CL_CUSTOMKEY_VALUE>;
+} CustomKeyFrame <read=ReadCustomKeyFrame>;
+
+string ReadCustomKeyFrame(CustomKeyFrame &frame)
+{
+    return Str("[%f] %s - %s: %f", frame.time, frame.active ? "ACTIVE" : "INACTIVE", EnumToString(frame.type), frame.value);
+}
+
+typedef struct
+{
+    uint time <bgcolor=CL_CUSTOMKEY_TIME>;
+    CustomKeyType type <bgcolor=CL_CUSTOMKEY_UNK>;
+    uint flags_maybe <bgcolor=CL_CUSTOMKEY_TYPE>;
+    
+    if (type == vRUN_SCRIPT)
+        QBKey value <bgcolor=CL_CUSTOMKEY_VALUE>;
+    else
+        float value <bgcolor=CL_CUSTOMKEY_VALUE>;
+} HiresCustomKeyFrame <read=ReadHiresCustomKeyFrame>;
+
+string ReadHiresCustomKeyFrame(HiresCustomKeyFrame &frame)
+{
+    switch (frame.type)
+    {
+        case vRUN_SCRIPT:
+            return Str("[%d] [%d] - %s: %s", frame.time, frame.flags_maybe, EnumToString(frame.type), ReadQBKey(frame.value));
+            break;
+        case vCHANGE_FOCAL_LENGTH:
+        default:
+            return Str("[%d] [%d] - %s: %f", frame.time, frame.flags_maybe, EnumToString(frame.type), frame.value);
+            break;
+    }
+}
+
+//------------------------------------------------
+
+void PrintSKAFlags()
+{
+    Printf("\n");
+    Printf("-- Current .ska flags: --\n");
+    
+    if (currentSkaFlags & nxBONEDANIMFLAGS_INTERMEDIATE)
+        Printf("- nxBONEDANIMFLAGS_INTERMEDIATE\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_UNCOMPRESSED)
+        Printf("- nxBONEDANIMFLAGS_UNCOMPRESSED\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_PLATFORM)
+        Printf("- nxBONEDANIMFLAGS_PLATFORM\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_CAMERADATA)
+        Printf("- nxBONEDANIMFLAGS_CAMERADATA\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_COMPRESSEDTIME)
+        Printf("- nxBONEDANIMFLAGS_COMPRESSEDTIME\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_PREROTATEDROOT)
+        Printf("- nxBONEDANIMFLAGS_PREROTATEDROOT\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_OBJECTANIMDATA)
+        Printf("- nxBONEDANIMFLAGS_OBJECTANIMDATA\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_USECOMPRESSTABLE)
+        Printf("- nxBONEDANIMFLAGS_USECOMPRESSTABLE\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_HIRESFRAMEPOINTERS)
+        Printf("- nxBONEDANIMFLAGS_HIRESFRAMEPOINTERS\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_CUSTOMKEYSAT60FPS)
+        Printf("- nxBONEDANIMFLAGS_CUSTOMKEYSAT60FPS\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_CUTSCENEDATA)
+        Printf("- nxBONEDANIMFLAGS_CUTSCENEDATA\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_PARTIALANIM)
+        Printf("- nxBONEDANIMFLAGS_PARTIALANIM\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_CUSTOMLOOKUPBUFFER)
+        Printf("- nxBONEDANIMFLAGS_CUSTOMLOOKUPBUFFER\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_UNK_14)
+        Printf("- nxBONEDANIMFLAGS_UNK_14\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_ONLYSINGLEBYTEQUATS)
+        Printf("- nxBONEDANIMFLAGS_ONLYSINGLEBYTEQUATS\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_USECOMPRESSTABLE_N8)
+        Printf("- nxBONEDANIMFLAGS_USECOMPRESSTABLE_N8\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_KEEPMISSINGBONEPOS)
+        Printf("- nxBONEDANIMFLAGS_KEEPMISSINGBONEPOS\n");
+    if (currentSkaFlags & nxBONEDANIMFLAGS_LONGFRAMETIMES)
+        Printf("- nxBONEDANIMFLAGS_LONGFRAMETIMES\n");
+        
+    Printf("\n");
+}
+
+typedef struct
+{   
+    uint version <bgcolor=CL_BONEHEADER_VERSION>;
+    
+    if (version == 1)
+    {
+        SkaFileVersion = SKAVERSION_THUG2;
+        Printf("THUG2 .ska file.\n");
+    }
+    else if (version == 40)
+    {
+        SkaFileVersion = SKAVERSION_THAW;
+        Printf("THAW .ska file.\n");
+    }
+    else
+    {
+        SkaFileVersion = SKAVERSION_THPS3;
+        Printf("Assuming THPS3 .ska file.\n");
+        return;
+    }
+    
+    uint flags <bgcolor=CL_BONEHEADER_FLAGS>;
+    currentSkaFlags = flags;
+    
+    PrintSKAFlags();
+
+    float duration <bgcolor=CL_BONEHEADER_DURATION>;
+} SBonedAnimFileHeader;
+
+//------------------------------------------------
+
+typedef struct (uint boneCount, uint startFrom)
+{
+    local int i;
+
+    for (i=0; i<boneCount; i++)
+    {
+        if (ReadInt() >= 0)
+            RelativeOffset offsets(startFrom) <bgcolor=CL_UNKOFFSETS>;
+        else
+            int offsets <bgcolor=CL_UNKOFFSETS_BAD>;
+    }
+
+} SkaPointerGroup;
+
+typedef struct (uint boneCount, uint quatStart)
+{
+    local uint blockStart = FTell();
+    local uint i;
+
+    for (i=0; i<20; i++)
+        RelativeOffset blockOffsets(blockStart) <bgcolor=CL_UNKVALUES, comment="Group starting positions relative to block">;
+
+    for (i=0; i<20; i++)
+    {
+        FSeek(AbsOffset(blockOffsets[i]));
+        SkaPointerGroup offsetGroup(boneCount, quatStart);
+    }
+
+} SkaPointerBlock;
+
+//------------------------------------------------
+
+local uint runningQCount = 0;
+local uint runningTCount = 0;
+
+typedef struct
+{
+    ushort numQKeys <bgcolor=CL_SINGLEVALUE>;
+    ushort numTKeys <bgcolor=CL_SINGLEVALUE>;
+    
+    runningQCount = (uint) runningQCount + (uint) numQKeys;
+    runningTCount = (uint) runningTCount + (uint) numTKeys;
+} SStandardAnimFramePointers <read=Str("%d Q keys, %d T keys", numQKeys, numTKeys)>;
+
+typedef struct
+{
+    float x <bgcolor=CL_QUATFRAME_X>;
+    float y <bgcolor=CL_QUATFRAME_Y>;
+    float z <bgcolor=CL_QUATFRAME_Z>;
+    float w <bgcolor=CL_QUATFRAME_W>;
+    float time <bgcolor=CL_QUATFRAME_FLAGTIME>;
+    uint prevFrameOffset <bgcolor=CL_POINTER>;
+} BoneQFrame <read=Str("[%f] %f, %f, %f, %f - (%d)", time, x, y, z, w, prevFrameOffset)>;
+
+typedef struct
+{
+    float x;
+    float y;
+    float z;
+    float time;
+    uint prevFrameOffset <bgcolor=CL_POINTER>;
+} BoneTFrame <read=Str("[%f] %f, %f, %f - (%d)", time, x, y, z, prevFrameOffset)>;
+
+typedef struct
+{
+    ubyte q_count <bgcolor=0xDDBBBB>;
+    ubyte t_count <bgcolor=0xBBDDBB>;
+} ObjectAnimKeyCount <bgcolor=CL_UNKVALUES, read=Str("%d Quats, %d Translations", q_count, t_count)>;
+
+typedef struct
+{  
+    SBonedAnimFileHeader header;
+    
+    if (SkaFileVersion == SKAVERSION_THPS3)
+    {
+        float unk;
+        float duration;
+        uint numQkeys;
+        uint numTkeys;
+        
+        // - 29 Q / T frames per bone, these are base pose at frame 0.
+        // FOR EACH BONE:
+        // - Keep reading frames until our frame time is >= ska duration
+        //
+        // - numQkeys and numTkeys are our limit, these should match!
+        
+        if (numQkeys)
+        {
+            BoneQFrame q_frames[numQkeys];
+        }
+        
+        if (numTkeys)
+        {
+            BoneTFrame t_frames[numTkeys];
+        }
+        
+        return;
+    }
+    
+    // -- plat_read_compressed_stream --------------------
+    if (header.flags & nxBONEDANIMFLAGS_USECOMPRESSTABLE)
+    {
+        Printf("plat_read_compressed_stream\n");
+        
+        if (SkaFileVersion == SKAVERSION_THUG2)
+        {
+            uint numBones <bgcolor=CL_SINGLEVALUE>;
+            uint numQKeys <bgcolor=CL_SINGLEVALUE, comment="Number of frames containing quaternion changes across all bones">;
+            uint numTKeys <bgcolor=CL_SINGLEVALUE, comment="Number of frames containing translation changes across all bones">;
+            uint numCustomAnimKeys <bgcolor=CL_SINGLEVALUE>;
+            
+            uint qAllocSize <bgcolor=CL_SINGLEVALUE>;
+            uint tAllocSize <bgcolor=CL_SINGLEVALUE>;
+            
+            ushort quat_block_sizes[numBones] <bgcolor=0xDDBBBB>;
+            ushort trans_block_sizes[numBones] <bgcolor=0xDDBBBB>;
+        }
+        else
+        {
+            ubyte unkByte <bgcolor=CL_SINGLEVALUE, comment="???">;
+            ubyte numBones <bgcolor=CL_SINGLEVALUE>;
+            
+            ushort numQKeys <bgcolor=CL_SINGLEVALUE, comment="Number of frames containing quaternion changes across all bones">;
+            ushort numTKeys <bgcolor=CL_SINGLEVALUE, comment="Number of frames containing translation changes across all bones">;
+            ushort numCustomAnimKeys <bgcolor=CL_SINGLEVALUE>;
+        
+            RelativeOffset pos_customkey(0) <bgcolor=CL_POINTER, comment="Off to custom keys?">;
+            RelativeOffset pos_quat(0) <bgcolor=CL_POINTER, comment="Off to quaternions">;
+            RelativeOffset pos_trans(0) <bgcolor=CL_POINTER, comment="Off to translations">;
+            RelativeOffset pos_bonesizes_quat(0) <bgcolor=CL_POINTER, comment="Off to per-bone quat sizes">;
+            RelativeOffset pos_bonesizes_trans(0) <bgcolor=CL_POINTER, comment="Off to per-bone trans sizes">;
+        
+            uint qAllocSize <bgcolor=CL_SINGLEVALUE, comment="Total size of quat block">;
+            uint tAllocSize <bgcolor=CL_SINGLEVALUE, comment="Total size of trans block">;
+            
+            ushort quat_block_sizes[numBones] <bgcolor=0xDDBBBB>;
+            ushort trans_block_sizes[numBones] <bgcolor=0xBBDDBB>;
+        }
+        
+        if (currentSkaFlags & nxBONEDANIMFLAGS_PARTIALANIM)
+        {
+            uint partialAnimBoneCount <bgcolor=CL_SINGLEVALUE>;
+            
+            local uint numMasks = (uint) ((partialAnimBoneCount-1) / 32) + 1;
+            Printf("Had %d partial anim masks\n", numMasks);
+            
+            uint partialAnimMasks[numMasks] <bgcolor=CL_SINGLEVALUE>;
+        }
+        
+        if (header.flags & nxBONEDANIMFLAGS_OBJECTANIMDATA)
+        {
+            Printf("Wasn't expecting object anims to be compressed.\n");
+            return;
+        }
+        
+        // ----------------------------
+        
+        // Always read data as little endian
+        LittleEndian();
+        
+        local uint i;
+        
+        // Quaternion data
+        local uint quat_block_end = FTell() + qAllocSize;
+        local uint next_pos;
+        
+        for (i=0; i<numBones; i++)
+        {
+            next_pos = FTell() + quat_block_sizes[i];
+            currentSkaBone = i;
+        
+            if (quat_block_sizes[i])
+                QuatFrameBlock quaternion_data(quat_block_sizes[i]) <optimize=false>;
+        
+            if (FTell() != next_pos)
+                Printf("Quat %d off by %d bytes\n", i, FTell() - next_pos);
+        }
+        
+        if (FTell() != quat_block_end)
+            Printf("!! Quat block off by %d bytes\n", FTell() - quat_block_end);
+            
+        // ----------------------------
+        
+        // Skip to 4 bytes here???
+        
+        // Translation data
+        local uint trans_block_end = FTell() + tAllocSize;
+    
+        for (i=0; i<numBones; i++)
+        {
+            next_pos = FTell() + trans_block_sizes[i];
+            currentSkaBone = i;
+            
+            if (trans_block_sizes[i])
+            {
+                TransFrameBlock trans_data(trans_block_sizes[i], 0, header.flags) <optimize=false>;
+            }
+    
+            if (FTell() != next_pos)
+                Printf("Trans %d off by %d bytes\n", i, FTell() - next_pos);
+        }
+    
+        if (FTell() != trans_block_end)
+            Printf("!! Trans block off by %d bytes\n", FTell() - trans_block_end);
+            
+        // ----------------------------
+        
+        SkipTo(4);
+        
+        if (numCustomAnimKeys)
+        {
+            Printf("Custom keys not supported yet.\n");
+            return;
+        }
+    }
+    else
+    {
+        if (SkaFileVersion == SKAVERSION_THUG2)
+        {
+            uint numBones <bgcolor=CL_SINGLEVALUE>;
+            uint numQKeys <bgcolor=CL_SINGLEVALUE>;
+            uint numTKeys <bgcolor=CL_SINGLEVALUE>;
+            uint numCustomAnimKeys <bgcolor=CL_SINGLEVALUE>;
+            
+            if (header.flags & nxBONEDANIMFLAGS_OBJECTANIMDATA)
+            {
+                QBKey bone_names[numBones] <bgcolor=CL_CHECKSUM>;
+                ObjectAnimKeyCount counts[numBones];
+            }
+            else
+            {
+                ubyte numQKeys_B <bgcolor=CL_SINGLEVALUE>;
+                ubyte numTKeys_B <bgcolor=CL_SINGLEVALUE>;
+                
+                // Frame pointer count?
+                if (currentSkaFlags & nxBONEDANIMFLAGS_HIRESFRAMEPOINTERS)
+                {
+                    ubyte unkA <bgcolor=CL_SINGLEVALUE>;
+                    ubyte unkB <bgcolor=CL_SINGLEVALUE>;
+                }
+            }
+            
+            if (numQKeys)
+                HiresQuatFrame quatFrames[numQKeys];
+            if (numTKeys)
+                HiresTransFrame transFrames[numTKeys];
+            if (numCustomAnimKeys)
+                HiresCustomKeyFrame customFrames[numCustomAnimKeys] <optimize=false>;
+        }
+        else
+        {
+            ubyte unkByte <bgcolor=CL_SINGLEVALUE, comment="???">;
+            ubyte numBones <bgcolor=CL_SINGLEVALUE>;
+            
+            ushort numQKeys <bgcolor=CL_SINGLEVALUE, comment="Number of frames containing quaternion changes across all bones">;
+            ushort numTKeys <bgcolor=CL_SINGLEVALUE, comment="Number of frames containing translation changes across all bones">;
+            ushort numCustomAnimKeys <bgcolor=CL_SINGLEVALUE>;
+        
+            RelativeOffset pos_customkey(0) <bgcolor=CL_POINTER, comment="Off to custom keys?">;
+            RelativeOffset pos_quat(0) <bgcolor=CL_POINTER, comment="Off to quaternions">;
+            RelativeOffset pos_trans(0) <bgcolor=CL_POINTER, comment="Off to translations">;
+            RelativeOffset pos_bonesizes_quat(0) <bgcolor=CL_POINTER, comment="Off to per-bone quat sizes">;
+            RelativeOffset pos_bonesizes_trans(0) <bgcolor=CL_POINTER, comment="Off to per-bone trans sizes">;
+        
+            if (header.flags & nxBONEDANIMFLAGS_OBJECTANIMDATA)
+            {
+                QBKey bone_names[numBones] <bgcolor=CL_CHECKSUM>;
+                ObjectAnimKeyCount counts[numBones];
+            }
+            else
+            {
+                ubyte numQKeys_B <bgcolor=CL_SINGLEVALUE>;
+                ubyte numTKeys_B <bgcolor=CL_SINGLEVALUE>;
+                
+                // Frame pointer count?
+                // if (currentSkaFlags & nxBONEDANIMFLAGS_HIRESFRAMEPOINTERS)
+                // {
+                    ubyte unkA <bgcolor=CL_SINGLEVALUE>;
+                    ubyte unkB <bgcolor=CL_SINGLEVALUE>;
+                // }
+            }
+            
+            if (numQKeys)
+                HiresQuatFrame quatFrames[numQKeys];
+            if (numTKeys)
+                HiresTransFrame transFrames[numTKeys];
+            if (numCustomAnimKeys)
+                HiresCustomKeyFrame customFrames[numCustomAnimKeys] <optimize=false>;
+        }
+            
+        return;
+    }
+        
+    return;
+  
+    ubyte unkByte <bgcolor=CL_SINGLEVALUE, comment="???">;
+    ubyte boneCount <bgcolor=CL_SINGLEVALUE>;
+    ushort quatChanges <bgcolor=CL_SINGLEVALUE, comment="Number of frames containing quaternion changes across all bones">;
+
+    ushort transChanges <bgcolor=CL_SINGLEVALUE, comment="Number of frames containing translation changes across all bones">;
+    ushort customKeyCount <bgcolor=CL_SINGLEVALUE>;
+
+    RelativeOffset pos_customkey(0) <bgcolor=CL_POINTER, comment="Off to custom keys?">;
+    RelativeOffset pos_quat(0) <bgcolor=CL_POINTER, comment="Off to quaternions">;
+    RelativeOffset pos_trans(0) <bgcolor=CL_POINTER, comment="Off to translations">;
+    RelativeOffset pos_bonesizes_quat(0) <bgcolor=CL_POINTER, comment="Off to per-bone quat sizes">;
+    RelativeOffset pos_bonesizes_trans(0) <bgcolor=CL_POINTER, comment="Off to per-bone trans sizes">;
+
+    uint total_quaternions_size <bgcolor=CL_SINGLEVALUE, comment="Total size of quat block">;
+    uint total_translations_size <bgcolor=CL_SINGLEVALUE, comment="Total size of trans block">;
+    ushort quat_block_sizes[boneCount] <bgcolor=0xDDBBBB>;
+    ushort trans_block_sizes[boneCount] <bgcolor=0xBBDDBB>;
+
+    local int i;
+
+    // Quaternion data
+    local uint quat_block_end = FTell() + total_quaternions_size;
+    local uint next_pos;
+
+    for (i=0; i<boneCount; i++)
+    {
+        next_pos = FTell() + quat_block_sizes[i];
+        currentSkaBone = i;
+
+        if (quat_block_sizes[i])
+            QuatFrameBlock quaternion_data(quat_block_sizes[i]) <optimize=false>;
+
+        if (FTell() != next_pos)
+            Printf("Quat %d off by %d bytes\n", i, FTell() - next_pos);
+    }
+
+    if (FTell() != quat_block_end)
+        Printf("!! Quat block off by %d bytes\n", FTell() - quat_block_end);
+
+    // Translation data
+    local uint trans_block_end = FTell() + total_translations_size;
+
+    for (i=0; i<boneCount; i++)
+    {
+        next_pos = FTell() + trans_block_sizes[i];
+        currentSkaBone = i;
+        
+        if (trans_block_sizes[i])
+        {
+            TransFrameBlock trans_data(trans_block_sizes[i], 0, header.flags) <optimize=false>;
+        }
+
+        if (FTell() != next_pos)
+            Printf("Trans %d off by %d bytes\n", i, FTell() - next_pos);
+    }
+
+    if (FTell() != trans_block_end)
+        Printf("!! Trans block off by %d bytes\n", FTell() - trans_block_end);
+
+    // Custom key data
+    if (pos_customkey.offset >= 0)
+    {
+        FSeek(AbsOffset(pos_customkey));
+        for (i=0; i<customKeyCount; i++)
+        {
+            currentSkaBone = i;
+            CustomKeyFrame custom_keys(header.flags) <optimize=false>;
+        }
+    }
+} CBonedAnimFrameData;
+
+//------------------------------------------------
+
+// Peek to see if first byte is zero
+// If so, it's likely big endian
+
+local ubyte peekByte = ReadByte();
+if (peekByte == 0)
+    BigEndian();
+else
+    LittleEndian();
+
+CBonedAnimFrameData anim <comment="Gfx::CBonedAnimFrameData">;

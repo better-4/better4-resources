@@ -1,0 +1,135 @@
+//------------------------------------------------
+// THUG2Remix / THUG2(?) PS2 .tex file
+//------------------------------------------------
+
+#include "../Common.bt"
+
+int DecodeTexSize(uint sizeIndex)
+{
+    return (2 << sizeIndex-1);
+}
+
+//------------------------------------------------
+
+typedef struct
+{
+    uint format;
+} BPPFormat <read=ReadBPPFormat>;
+
+int GetBPP(uint bppNum)
+{
+    switch (bppNum)
+    {
+        case 0x13:
+            return 8;
+        case 0x14:
+            return 4;
+        default:
+            return 8;
+    }
+}
+
+string ReadBPPFormat(BPPFormat& bpp)
+{
+    return Str("%dbpp%s", GetBPP(bpp.format), (bpp.format >> 4) ? ", Paletted" : "");
+}
+
+//------------------------------------------------
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} PS2PaletteColor <read=Str("%d, %d, %d, %d", r, g, b, a)>;
+
+typedef struct
+{
+    ushort value;
+} PS2SmallPaletteColor <read=Str("%d", value)>;
+
+typedef struct
+{
+    uint unkA <bgcolor=CL_SINGLEVALUE>;
+    uint unkB <bgcolor=CL_SINGLEVALUE>;
+    uint width <bgcolor=CL_SINGLEVALUE>;
+    uint height <bgcolor=CL_SINGLEVALUE>;
+    BPPFormat bppFormat <bgcolor=CL_SINGLEVALUE>;
+    uint palPixelFormat <bgcolor=CL_SINGLEVALUE>;
+    ushort numMips <bgcolor=CL_SINGLEVALUE>;
+    ushort chunkFlag <bgcolor=CL_SINGLEVALUE>;
+    
+    if (chunkFlag >= 0x8000)
+    {
+        Printf("0x8000 chunk flag encountered. ???\n");
+        return;
+    }
+    
+    // Texture data always on 16 byte boundary. Apparently.
+    SkipTo(16);
+    
+    // Paletted image!
+    if (bppFormat.format >> 4)
+    {
+        local uint palSize;
+        local uint numColor;
+        local uint bpp = GetBPP(bppFormat.format);
+        
+        switch (bpp)
+        {
+            case 2:
+                Printf("2BPP image.\n");
+                break;
+                
+            case 4:
+                Printf("4BPP image.\n");
+                numColor = 16;
+                break;
+                
+            case 8:
+                Printf("8BPP image.\n");
+                numColor = 256;
+                break;
+                
+            default:
+                Printf("Unknown BPP %d.\n", bpp);
+                break;
+        }
+        
+        if (numColor)
+        {
+            if (palPixelFormat == 0)
+                PS2PaletteColor palette[numColor] <bgcolor=CL_SINGLEVALUE>;
+            else if (palPixelFormat == 2)
+                PS2SmallPaletteColor palette[numColor] <bgcolor=CL_SINGLEVALUE>;
+        }
+        
+        local float bytesPerPixel = (float) bpp / 8.0;
+        ubyte data[(uint) (DecodeTexSize(width) * DecodeTexSize(height) * bytesPerPixel)];
+    }
+} PS2Texture <read=Str("%dx%d, %s", DecodeTexSize(width), DecodeTexSize(height), ReadBPPFormat(bppFormat))>;
+
+typedef struct
+{
+    QBKey checksum <bgcolor=CL_CHECKSUM>;
+    uint zeroA <bgcolor=CL_SINGLEVALUE>;
+    uint zeroB <bgcolor=CL_SINGLEVALUE>;
+    uint textureCount <bgcolor=CL_SINGLEVALUE>;
+    
+    if (textureCount)
+        PS2Texture textures[textureCount] <optimize=false>;
+} PS2TexGroup <read=Str("%s (%d textures)", ReadQBKey(checksum), textureCount)>;
+
+typedef struct
+{
+    uint version <bgcolor=CL_SINGLEVALUE>;
+    uint numGroup <bgcolor=CL_SINGLEVALUE>;
+    uint numTexCount <bgcolor=CL_SINGLEVALUE>;
+    
+    if (numGroup)
+        PS2TexGroup groups[numGroup] <optimize=false>;
+} PS2TexFile;
+
+LittleEndian();
+PS2TexFile tex;

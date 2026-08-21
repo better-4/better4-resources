@@ -1,0 +1,17 @@
+//------------------------------------------------
+// PCM .dat file.
+//
+// (THAW X360)
+//------------------------------------------------
+
+#include "PCM.bt"
+
+local ubyte test_byte = ReadByte();
+
+if (test_byte == 0)
+    BigEndian();
+else
+    LittleEndian();
+
+PCMVersion = PCMVERSION_THAW_X360;
+PCMFile pcm;

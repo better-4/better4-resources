@@ -1,0 +1,103 @@
+//------------------------------------------------
+// THPS3 atomic plugin info.
+//------------------------------------------------
+
+#define CL_ATEXT_CONSTANT           0x997777
+#define CL_ATEXT_FLAG               0xBB9999
+#define CL_ATEXT_CHECKSUM           0xDDBBBB
+
+enum <ushort> THPS3PolyFlags
+{
+    FF_UNKA = 0x0004,
+    FF_VERT = 0x0008,
+    FF_NOCOLLIDE = 0x0010,
+    FF_TRIGGER = 0x0040,
+    FF_SKATABLE = 0x0080,
+    FF_INVIS_MAYBE = 0x0100,
+    FF_UNKD = 0x0200,
+    FF_UNKE = 0x0400,
+};
+
+typedef struct
+{
+    THPS3PolyFlags flags;
+} RWTHPS3AtomicPolyFlag <read=ReadAtomicPolyFlags>;
+
+string ReadAtomicPolyFlags(RWTHPS3AtomicPolyFlag& flag_holder)
+{
+    local string out;
+    local string separator = "";
+    local uint numFlags = 0;
+    
+    if (flag_holder.flags & FF_UNKA)
+    {
+        SPrintf(out, "%s%sFF_UNKA", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (flag_holder.flags & FF_VERT)
+    {
+        SPrintf(out, "%s%sFF_VERT", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (flag_holder.flags & FF_NOCOLLIDE)
+    {
+        SPrintf(out, "%s%sFF_NOCOLLIDE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (flag_holder.flags & FF_TRIGGER)
+    {
+        SPrintf(out, "%s%sFF_TRIGGER", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (flag_holder.flags & FF_SKATABLE)
+    {
+        SPrintf(out, "%s%sFF_SKATABLE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (flag_holder.flags & FF_INVIS_MAYBE)
+    {
+        SPrintf(out, "%s%sFF_INVIS_MAYBE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (flag_holder.flags & FF_UNKD)
+    {
+        SPrintf(out, "%s%sFF_UNKD", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (flag_holder.flags & FF_UNKE)
+    {
+        SPrintf(out, "%s%sFF_UNKE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    return out;
+}
+
+typedef struct
+{
+    uint constant_6 <bgcolor=CL_ATEXT_CONSTANT, comment="Always 6">;
+    
+    if (LastAtomicTriangleCount)
+        RWTHPS3AtomicPolyFlag polyFlags[LastAtomicTriangleCount] <bgcolor=CL_ATEXT_FLAG, comment="Polygon flag">;
+        
+    uint constant_0 <bgcolor=CL_ATEXT_CONSTANT, comment="Always 0">;
+    
+    QBKey checksum <bgcolor=CL_ATEXT_CHECKSUM, comment="QBKey checksum for mesh">;
+    
+    ubyte constant_bytes[3] <bgcolor=CL_ATEXT_CONSTANT, comment="Padding?">;
+} RWTHPS3AtomicInfo;

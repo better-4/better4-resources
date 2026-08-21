@@ -1,0 +1,27 @@
+// .tex file, basically container for IMG files
+
+#include "../Common.bt"
+
+#define NO_STANDALONE_IMG
+#include "Img.bt"
+
+typedef struct (int ct)
+{
+    THDJWiiImg textures[ct] <optimize=false>;
+} TextureBlock;
+
+typedef struct
+{
+    ubyte constantA <bgcolor=CL_PADDING>;
+    ubyte constantB <bgcolor=CL_PADDING>;
+
+    ushort texture_count <bgcolor=CL_SINGLEVALUE>;
+    RelativeOffset metadata_start(0) <bgcolor=CL_POINTER>;
+
+    FSeek(AbsOffset(metadata_start));
+
+    TextureBlock texture_list(texture_count);
+} TexFile;
+
+BigEndian();
+TexFile tex;

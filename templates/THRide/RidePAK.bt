@@ -1,0 +1,74 @@
+//------------------------------------------------
+// .pak archive
+//------------------------------------------------
+
+#include "../Common.bt"
+
+#define PAK_RIDE            3
+#define PAK_SHRED           4
+
+local uint PakFileVersion;
+local uint StringTableStart;
+
+typedef struct
+{
+    QBKey checksum;
+    RelativeOffset string_table_offset(StringTableStart);
+    uint unkA;
+    uint unkB;
+    RelativeOffset data_start(0);
+    uint data_size;
+    
+    if (PakFileVersion == PAK_SHRED)
+    {
+        uint compressed_data_size;
+        uint shred_null;
+    }
+    
+    local uint old_off = FTell();
+    
+    FSeek(AbsOffset(string_table_offset));
+    
+    string name;
+    
+    FSeek(old_off);
+} FileEntry <read=Str("%s: %d bytes", name, data_size)>;
+
+typedef struct
+{
+    string name;
+} FileName <read=Str("%s", name)>;
+
+typedef struct
+{
+    uint magic;
+    
+    if (magic != 0x50414B00)
+    {
+        Printf(".pak file is compressed.\n");
+        return;
+    }
+    
+    ushort beefMagic;
+    ushort version;
+    
+    if (version != PAK_RIDE && version != PAK_SHRED)
+    {
+        Printf("Unknown .pak version %d.\n", version);
+        return;
+    }
+    
+    PakFileVersion = version;
+
+    uint filecount;
+    uint filenameTableSize;
+    
+    StringTableStart = FTell() + (filecount * (version == PAK_SHRED ? 32 : 24));
+    
+    FileEntry files[filecount] <optimize=false>;
+      
+    FileName filenames[filecount] <optimize=false>;
+} PAKFile;
+
+BigEndian();
+PAKFile file;

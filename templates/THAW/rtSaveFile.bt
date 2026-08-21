@@ -1,0 +1,74 @@
+//------------------------------------------------
+// reTHAWed Save File
+//------------------------------------------------
+
+#include "../Common.bt"
+
+enum <uint> RTChunkKey
+{
+    SAVECHUNK_MEMCARDSTUFF = 0x39137FE5,
+    SAVECHUNK_SUMMARY = 0x31D7999C,
+};
+
+typedef struct
+{
+    RTChunkKey magic <bgcolor=CL_CHECKSUM>;
+    unsigned int size <bgcolor=CL_SINGLEVALUE>;
+    
+    if (size)
+        ubyte data[size] <bgcolor=0xAAAAAA>;
+} V1SaveChunk <read=ReadV1SaveChunk>;
+
+string ReadV1SaveChunk(V1SaveChunk &chunk)
+{
+    local string eStr = EnumToString(chunk.magic);
+    local string finalStr = Strlen(eStr) ? eStr : Str("SAVECHUNK_UNKNOWN (0x%08x)", chunk.magic);
+    local string helpStr = "";
+    
+    switch (chunk.magic)
+    {
+        case SAVECHUNK_MEMCARDSTUFF:
+            helpStr = "(Game save data)";
+            break;
+            
+        case SAVECHUNK_SUMMARY:
+            helpStr = "(Game save summary)";
+            break;
+    }
+
+    return Str("%s %s", finalStr, helpStr);
+}
+
+typedef struct
+{
+    uint chunkCount <bgcolor=CL_SINGLEVALUE>;
+    
+    if (chunkCount)
+        V1SaveChunk chunks[chunkCount] <optimize=false>;
+} V1SaveData;
+
+typedef struct
+{
+    char magic[4] <bgcolor=CL_CHECKSUM>;
+    
+    if (magic != "RTHW")
+    {
+        Printf("Not a reTHAWed save file.\n");
+        return;
+    }
+    
+    uint version <bgcolor=CL_SINGLEVALUE>;
+    
+    switch (version)
+    {
+        case 1:
+            V1SaveData data;
+            break;
+        default:
+            Printf("Unknown save version %d.\n", version);
+            break;
+    }
+} RTSaveFile;
+
+LittleEndian();
+RTSaveFile save;

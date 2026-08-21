@@ -1,0 +1,9 @@
+//------------------------------------------------
+// THPS4 .skin / .mdl / .scn file.
+//------------------------------------------------
+
+#include "Skin.bt"
+
+SkinFileVersion = SKIN_VERSION_THPS4;
+
+SkinFile skin;

@@ -1,0 +1,459 @@
+//------------------------------------------------
+// THAW .fnt.wpc file
+//  (Apparently the same for PSP fonts?)
+//------------------------------------------------
+
+#include "Common.bt"
+
+#define NO_STANDALONE_IMG
+#include "THAW/Img.bt"
+#include "sTexture.bt"
+
+#define FONT_FNT1   1
+#define FONT_FNT2   2
+#define FONT_FNT3   3
+#define FONT_FNT4   4
+local ubyte FntFileVersion = FONT_FNT1;
+
+#define FNT4_THP8     156           // THP8 only
+#define FNT4_THPG     160           // THPG only
+#define FNT4_GH3      164           // GH3 only
+#define FNT4_GHWT     168           // GHWT and onwards
+local ubyte FntFileSubVersion = 0;
+
+local ubyte test_short = ReadShort();
+
+if (test_short == 0)
+    BigEndian();
+else
+    LittleEndian();
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+typedef struct (uint index)
+{
+    local uint glyph_index = index;
+    
+    if (FntFileVersion >= FONT_FNT4)
+        ushort value <bgcolor=CL_FLOATS>;
+    else
+        ubyte value <bgcolor=CL_FLOATS>;
+} FNTGlyphCode <read=ReadFNTGlyphCode>;
+
+string ReadFNTGlyphCode(FNTGlyphCode &code)
+{
+    local string s;
+
+    if (code.glyph_index >= 32)
+        return SPrintf(s, "%c: %d", code.glyph_index, code.value);
+
+    return SPrintf(s, ": %d", code.value);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+typedef struct
+{
+    // FNT4: THP8 and onwards
+    if (FntFileVersion == FONT_FNT4)
+    {
+        switch (FntFileSubVersion)
+        {
+            // Hey, same as THAW, cool!
+            case FNT4_THP8:
+                float u0 <bgcolor=CL_FLOATS>;
+                float v0 <bgcolor=CL_FLOATS>;
+                float u1 <bgcolor=CL_FLOATS>;
+                float v1 <bgcolor=CL_FLOATS>;
+                ushort w <bgcolor=CL_SINGLEVALUE>;
+                ushort h <bgcolor=CL_SINGLEVALUE>;
+                ushort BaseLine <bgcolor=CL_SINGLEVALUE>;
+                ubyte align_to_four[2] <hidden=true>;
+                break;
+                
+            case FNT4_THPG:
+                float u0 <bgcolor=CL_FLOATS>;
+                float v0 <bgcolor=CL_FLOATS>;
+                float u1 <bgcolor=CL_FLOATS>;
+                float v1 <bgcolor=CL_FLOATS>;
+                float w <bgcolor=CL_SINGLEVALUE>;
+                float h <bgcolor=CL_SINGLEVALUE>;
+                float vShift <bgcolor=CL_FLOATS>;
+                break;
+                
+            case FNT4_GH3:
+                float u0 <bgcolor=CL_FLOATS>;
+                float v0 <bgcolor=CL_FLOATS>;
+                float u1 <bgcolor=CL_FLOATS>;
+                float v1 <bgcolor=CL_FLOATS>;
+                float w <bgcolor=CL_SINGLEVALUE>;
+                float h <bgcolor=CL_SINGLEVALUE>;
+                float vShift <bgcolor=CL_FLOATS>;
+                int hShift <bgcolor=CL_FLOATS>;
+                int unk_d <bgcolor=CL_FLOATS>;
+                break;
+        
+            case FNT4_GHWT:
+                float x;
+                float y;
+                float x2;
+                float y2;
+                float w;
+                float h;
+                float vShift;
+                float hShift;
+                float unk_d;
+                break;
+                
+            default:
+                Printf("SChar: Unknown FNT4 Subversion %d.\n",  FntFileSubVersion);
+                break;
+        }
+    }
+    
+    // FNT3: THAW
+    else
+    {
+        float u0 <bgcolor=CL_FLOATS>;
+        float v0 <bgcolor=CL_FLOATS>;
+        float u1 <bgcolor=CL_FLOATS>;
+        float v1 <bgcolor=CL_FLOATS>;
+        ushort w <bgcolor=CL_SINGLEVALUE>;
+        ushort h <bgcolor=CL_SINGLEVALUE>;
+        ushort BaseLine <bgcolor=CL_SINGLEVALUE>;
+        
+        ubyte align_to_four[2] <hidden=true>;
+    }
+} SChar;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+typedef struct
+{
+    ubyte r <bgcolor=CL_SINGLEVALUE>;
+    ubyte g <bgcolor=CL_SINGLEVALUE>;
+    ubyte b <bgcolor=CL_SINGLEVALUE>;
+    ubyte a <bgcolor=CL_SINGLEVALUE>;
+} THAWPaletteColor;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+typedef struct
+{
+    ushort always_two <bgcolor=CL_SINGLEVALUE>;
+    ushort always_twenty <bgcolor=CL_SINGLEVALUE>;
+    uint clut_depth_maybe <bgcolor=CL_SINGLEVALUE>;
+    ushort original_width <bgcolor=CL_SINGLEVALUE>;
+    ushort original_height <bgcolor=CL_SINGLEVALUE>;
+    ushort resized_width <bgcolor=CL_SINGLEVALUE>;
+    ushort resized_height <bgcolor=CL_SINGLEVALUE>;
+    ubyte mips_maybe <bgcolor=CL_SINGLEVALUE>;
+    ubyte unk_eight <bgcolor=CL_SINGLEVALUE>;
+    ubyte ps2_color_maybe <bgcolor=CL_SINGLEVALUE>;
+    ubyte bpp_maybe <bgcolor=CL_SINGLEVALUE>;
+    uint color_count <bgcolor=CL_SINGLEVALUE>;
+
+    THAWPaletteColor colors[color_count];
+} THAWPaletteTable;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+typedef struct
+{
+    short vShift <bgcolor=CL_SINGLEVALUE>;
+    uint charCode <bgcolor=CL_SINGLEVALUE>;
+} FNT2Glyph <read=Str("%c: %d shift", charCode, vShift)>;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} FNT1PaletteColor <read=Str("R: %d, G: %d, B: %d, A: %d", r, g, b, a)>;
+
+typedef struct
+{
+    uint imageSize <bgcolor=CL_SINGLEVALUE>;
+    ushort imageWidth <bgcolor=CL_SINGLEVALUE>;
+    ushort imageHeight <bgcolor=CL_SINGLEVALUE>;
+    ushort imageBPP_maybe <bgcolor=CL_SINGLEVALUE>;
+    ushort unkA <bgcolor=CL_SINGLEVALUE>;
+    ushort unkB <bgcolor=CL_SINGLEVALUE>;
+    ushort unkC <bgcolor=CL_SINGLEVALUE>;
+    
+    ubyte pixelPaletteIndices[(uint) imageWidth * (uint) imageHeight] <bgcolor=0xAAAAAA, comment="Palette index per pixel">;
+    
+    FNT1PaletteColor colors[256] <bgcolor=0xBBBBBB, comment="Palette colors, RGBA">;
+} FNT1Image <read=Str("%dx%d: %d bytes", imageWidth, imageHeight, imageSize)>;
+
+typedef struct
+{
+    short vShift <bgcolor=CL_SINGLEVALUE>;
+    wchar_t charCode <bgcolor=CL_SINGLEVALUE>; 
+} FNT1Glyph <read=Str("%c: %d shift", charCode, vShift)>;
+
+// Shared by FNT1 / FNT2
+typedef struct
+{
+    ushort x;
+    ushort y;
+    ushort width;
+    ushort height;
+} FNT1GlyphInfo <read=Str("%dx%d, (X: %d, Y: %d)", width, height, x, y)>;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+void CheckFNT4Version(uint const_offset, uint desired_version)
+{
+    local uint old_off = FTell();
+    FSeek(old_off + const_offset);
+    
+    if (ReadShort() == 2)
+    {
+        FSkip(2);
+        
+        if (ReadShort() == desired_version)
+            FntFileSubVersion = desired_version;
+    }
+    
+    FSeek(old_off);
+}
+
+void GetFNT4Version()
+{
+    FntFileSubVersion = 0;
+    CheckFNT4Version(8, FNT4_THP8);
+    CheckFNT4Version(8, FNT4_THPG);
+    CheckFNT4Version(16, FNT4_GH3);
+    CheckFNT4Version(20, FNT4_GHWT);
+    
+    switch (FntFileSubVersion)
+    {
+        case FNT4_THP8:
+            Printf("Is THP8 font.\n");
+            break;
+        case FNT4_THPG:
+            Printf("Is THPG font.\n");
+            break;
+        case FNT4_GH3:
+            Printf("Is GH3 font.\n");
+            break;
+        case FNT4_GHWT:
+            Printf("Is GHWT font.\n");
+            break;
+        default:
+            Printf("Unknown FNT4 version.\n");
+            break;
+    }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+typedef struct
+{
+    switch (FntFileVersion)
+    {
+        case FONT_FNT1:
+            uint FontSizeMaybe <comment="Size of whole file">;
+            uint GlyphCount;
+            uint FontHeight;
+            uint VShift;
+            
+            if (GlyphCount)
+                FNT1Glyph glyphs[GlyphCount];
+            break;
+            
+        case FONT_FNT2:
+            uint FontSizeMaybe;
+            uint FontCountMaybe;
+            uint GlyphCount;
+            uint FontHeight;
+            uint VShift;
+            
+            if (GlyphCount)
+                FNT2Glyph glyphs[GlyphCount];
+            break;
+            
+        case FONT_FNT3:
+            uint DefaultHeight <bgcolor=CL_SINGLEVALUE>;
+            uint DefaultBase <bgcolor=CL_SINGLEVALUE>;
+            
+            RelativeOffset pt_pChars(0) <bgcolor=CL_POINTER, comment="Points to pChars">;
+        
+            // Fonts specify 288 characters by decimal
+            // byte starting from offset 0x12
+	        //
+	        // Each byte corresponds to the GLYPH INDEX
+	        // that will be used for the character
+        
+            local int l;
+            local int highest_glyph;
+        
+            for (l=0; l<256; l++)
+            {
+                FNTGlyphCode Map(l) <bgcolor=CL_FLOATS>;
+        
+                if (Map.value > highest_glyph)
+                    highest_glyph = Map.value;
+            }
+            
+            for (l=0; l<32; l++)
+            {
+                FNTGlyphCode SpecialMap(l) <bgcolor=CL_FLOATS>;
+        
+                if (SpecialMap.value > highest_glyph)
+                    highest_glyph = SpecialMap.value;
+            }
+        
+            Printf("Highest glyph index: %d\n", highest_glyph);
+        
+            uint unknownColor <bgcolor=CL_PADDING>;
+            int pNext <bgcolor=CL_PADDING, comment="Internal: Points to next font?">;
+            ushort mCharSpacing <bgcolor=CL_PADDING, comment="Internal: Character spacing">;
+            ushort mSpaceSpacing <bgcolor=CL_PADDING, comment="Internal: Space character size">;
+        
+            uint mRGBATab[16] <bgcolor=CL_PADDING, comment="Color table gets stored here, internally">;
+        
+            RelativeOffset pD3DTexture(0) <bgcolor=CL_POINTER>;
+            
+            FSeek(AbsOffset(pt_pChars));
+        
+            // Loop through glyphs
+            local uint test_int = ReadInt();
+            
+            while (FTell() < AbsOffset(pD3DTexture) && !FEof())
+            {
+                SChar pChars <optimize=true>;
+                test_int = ReadInt();
+            }
+            
+            break;
+            
+        case FONT_FNT4:
+            GetFNT4Version();
+            
+            if (!FntFileSubVersion)
+                return;
+                
+            switch (FntFileSubVersion)
+            {
+                case FNT4_GH3:
+                    int DefaultHeight <bgcolor=CL_SINGLEVALUE>;
+                    int vShift <bgcolor=CL_SINGLEVALUE>;
+                    int hShift <bgcolor=CL_SINGLEVALUE>;
+                    float unk <bgcolor=CL_SINGLEVALUE>;
+                    break;
+                    
+                case FNT4_GHWT:
+                    float vShift <bgcolor=CL_SINGLEVALUE>;
+                    float hShift <bgcolor=CL_SINGLEVALUE>;
+                    float scale <bgcolor=CL_SINGLEVALUE, comment="Does this do anything?">;
+                    float DefaultHeight <bgcolor=CL_SINGLEVALUE>;
+                    float DefaultBase <bgcolor=CL_SINGLEVALUE>;
+                    break;
+                    
+                case FNT4_THPG:
+                    float DefaultHeight <bgcolor=CL_SINGLEVALUE>;
+                    float DefaultBase <bgcolor=CL_SINGLEVALUE>;
+                    break;
+                    
+                default:
+                    int DefaultHeight <bgcolor=CL_SINGLEVALUE>;
+                    int DefaultBase <bgcolor=CL_SINGLEVALUE>;
+                    break;
+            }
+            
+            ushort const_a <bgcolor=CL_SINGLEVALUE>;
+            ushort const_b_version <bgcolor=CL_SINGLEVALUE, comment="Version? If it's offset, what is it to?">;
+
+	        // Each byte corresponds to the GLYPH INDEX
+	        // that will be used for the character
+        
+            local int l;
+            local int highest_glyph;
+        
+            for (l=0; l<65535; l++)
+            {
+                FNTGlyphCode Map(l) <bgcolor=CL_FLOATS>;
+        
+                if (Map.value > highest_glyph)
+                    highest_glyph = Map.value;
+            }
+            
+            for (l=0; l<32; l++)
+            {
+                FNTGlyphCode SpecialMap(l) <bgcolor=CL_FLOATS>;
+        
+                if (SpecialMap.value > highest_glyph)
+                    highest_glyph = SpecialMap.value;
+            }
+            
+            Printf("Highest glyph index: %d\n", highest_glyph);
+            
+            uint always_1 <bgcolor=CL_SINGLEVALUE>;
+            
+            ushort DEAD <hidden=true, bgcolor=CL_IMPORTANT_BG, fgcolor=CL_IMPORTANT_FG>;
+            uint FFpad <hidden=true, bgcolor=CL_PADDING>;
+            
+            if (FntFileSubVersion == FNT4_THPG)
+                uint unk <bgcolor=CL_PADDING>;
+            
+            if (FntFileSubVersion == FNT4_THP8)
+                int space_width <bgcolor=CL_SINGLEVALUE, comment="Width of space glyph">;
+            else
+                float space_width <bgcolor=CL_SINGLEVALUE, comment="Width of space glyph">;
+            
+            uint mRGBATab[16] <bgcolor=CL_PADDING, comment="Color table gets stored here, internally">;
+            
+            RelativeOffset pD3DTexture(0) <bgcolor=CL_POINTER>;
+            
+            // Loop through glyphs
+            local uint i = 0;
+            
+            for (i=0; i<highest_glyph+1; i++)
+                SChar pChars <optimize=true>;
+            
+            break;
+    }
+} SFont;
+
+typedef struct
+{
+    switch (FntFileVersion)
+    {
+        case FONT_FNT1:
+            SFont font <comment="NxXbox::SFont?">;
+            FNT1Image image;
+            
+            uint glyphSizingCount <bgcolor=CL_SINGLEVALUE, comment="Again">;
+            FNT1GlyphInfo glyphSizing[glyphSizingCount];
+            break;
+            
+        case FONT_FNT2:
+            SFont font <comment="NxXbox::SFont?">;
+            FNT1Image image;
+            
+            uint glyphSizingCount <bgcolor=CL_SINGLEVALUE, comment="Again">;
+            FNT1GlyphInfo glyphSizing[glyphSizingCount];
+            break;
+            
+        case FONT_FNT3:
+            SFont font <comment="NxXbox::SFont?">;
+            FSeek(AbsOffset(font.pD3DTexture));
+            THAWImg image;
+            break;
+            
+        case FONT_FNT4:
+            SFont font <comment="NxXbox::SFont?">;
+            FSeek(AbsOffset(font.pD3DTexture));
+            sTexture image;
+            break;
+            
+        default:
+            Printf("Unknown font file version %d\n", FntFileVersion);
+            break;
+    }
+} FntFile;

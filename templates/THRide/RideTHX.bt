@@ -1,0 +1,69 @@
+//------------------------------------------------
+// Tony Hawk: Ride .THX texture
+//------------------------------------------------
+
+#include "../Common.bt"
+
+#define THX_RIDE                    2
+#define THX_SHRED                   3
+
+BigEndian();
+
+enum <ubyte> X360ImageFormat
+{
+    FMT_Gray8 = 0x02,
+    FMT_DXT1 = 0x52,
+    FMT_DXT5 = 0x54,
+    FMT_DXT5PackedNormal_ATI2 = 0x71,
+    FMT_DXT1PackedNormal = 0x7C,
+    FMT_Raw = 0x86
+};
+
+typedef struct
+{
+    ushort AFAF_Magic <bgcolor=CL_PARSED>;
+    
+    if (AFAF_Magic != 0xAFAF)
+    {
+        Printf("This does not seem to be a .THX file.\n");
+        return;
+    }
+    
+    ushort version <bgcolor=CL_SINGLEVALUE>;
+    
+    if (version != THX_RIDE && version != THX_SHRED)
+    {
+        Printf("Only version %d and %d .thx files are supported.\n", THX_RIDE, THX_SHRED);
+        return;
+    }
+    
+    uint filesize <bgcolor=CL_SINGLEVALUE>;
+    
+    ushort unkA;
+    ushort unkB;
+    
+    QBKey BEEFFACE_Magic <bgcolor=CL_PARSED>;
+    
+    ushort compressionMaybe <bgcolor=CL_SINGLEVALUE>;
+    ushort unkC <bgcolor=CL_SINGLEVALUE>;
+    
+    ushort imgWidth <bgcolor=CL_SINGLEVALUE>;
+    ushort imgHeight <bgcolor=CL_SINGLEVALUE>;
+    
+    ushort unkD <bgcolor=CL_SINGLEVALUE>;
+    
+    ubyte unkE <bgcolor=CL_SINGLEVALUE>;
+    ubyte unkF <bgcolor=CL_SINGLEVALUE>;
+    
+    QBKey checksumMaybe <bgcolor=CL_CHECKSUM>;
+    
+    if (version == THX_SHRED)
+        FSeek(0x5F);
+    else
+        FSeek(0x4B);
+    
+    X360ImageFormat x360Format <bgcolor=CL_SINGLEVALUE>;
+    
+} THRTHX;
+
+THRTHX file;

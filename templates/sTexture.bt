@@ -1,0 +1,387 @@
+// Header for .img files, used both in img and .tex
+
+enum <ubyte> sTextureVersion
+{
+    TEX_THAW_XBOX = 6,
+    TEX_THAW_X360 = 8,
+    TEX_PC_X360 = 10,
+    TEX_PS3 = 12
+};
+
+local uint CurrentTextureStart;
+local sTextureVersion CurrentTextureVersion;
+
+enum <ubyte> ImageType
+{
+    TEX_STANDARD = 0,
+    TEX_NORMALMAP = 1,
+    TEX_SPECULARMAP = 3,
+    TEX_CUBEMAP = 4,
+    TEX_VOLUMETRIC = 5
+};
+
+string ReadImageType(ImageType type)
+{
+    local string estr = EnumToString(type);
+    
+    if (estr == "")
+        return Str("TEX_%d", type);
+        
+    return estr;
+}
+
+// Could also be 0x01, not sure
+#define TEXTURE_FLAG_PC               0x10
+
+// ------------------------------------------------
+
+typedef struct
+{
+    ushort xbox_a <bgcolor=CL_SINGLEVALUE>;
+    ushort xbox_b <bgcolor=CL_SINGLEVALUE>;
+    uint always_one <bgcolor=CL_SINGLEVALUE>;
+    uint skip_a[3] <bgcolor=CL_PADDING, hidden=true>;
+
+    ubyte null[3] <bgcolor=CL_PADDING, hidden=true>;
+    ubyte thawImageType <bgcolor=CL_SINGLEVALUE>;
+    short shorts[2] <bgcolor=CL_PARSED>;
+
+    ubyte unk_byte <bgcolor=CL_SINGLEVALUE>;
+    ubyte skip_b[2] <bgcolor=CL_PADDING, hidden=true>;
+    ubyte always_two <bgcolor=CL_SINGLEVALUE>;
+    ubyte skip_c[3] <bgcolor=CL_PADDING, hidden=true>;
+    ubyte image_format <bgcolor=CL_SINGLEVALUE>;
+    uint unknown <bgcolor=CL_SINGLEVALUE>;
+    uint unknown_a <bgcolor=CL_SINGLEVALUE>;
+    uint unknown_b <bgcolor=CL_SINGLEVALUE>;
+    uint unknown_c <bgcolor=CL_SINGLEVALUE>;
+} ImgXboxHeader <read=Str("X360: 0x%x", image_format)>;
+
+enum <ubyte> PS3ImageFormat
+{
+    PS3_DXT1 = 0x86,
+    PS3_DXT1_B = 0xA6,
+    PS3_DXT5 = 0x88,
+};
+
+typedef struct
+{
+    PS3ImageFormat format <bgcolor=CL_SINGLEVALUE>;
+    ubyte Levels <bgcolor=CL_SINGLEVALUE>;
+    ubyte two <bgcolor=CL_SINGLEVALUE>;
+    ubyte zero <bgcolor=CL_SINGLEVALUE>;
+    uint constant <bgcolor=CL_SINGLEVALUE>;
+    ushort image_width <bgcolor=CL_SINGLEVALUE>;
+    ushort image_height <bgcolor=CL_SINGLEVALUE>;
+    uint unknown <bgcolor=CL_SINGLEVALUE>;
+    uint zero_b <bgcolor=CL_SINGLEVALUE>;
+    uint plat_offset <bgcolor=CL_SINGLEVALUE, comment="Same offset as the main header">;
+} ImgPS3Header <read=Str("PS3 Texture: %s", EnumToString(format))>;
+
+// ------------------------------------------------
+
+typedef struct
+{
+} sTexture_v6_Header;
+
+typedef struct
+{
+    local ubyte thaw = 0;
+    local ubyte xbox = 0;
+    
+    ubyte header_size <bgcolor=CL_SINGLEVALUE, comment="Size of texture header">;
+
+    // THAW texture
+    if (CurrentTextureVersion == TEX_THAW_X360)
+        thaw = 1;
+
+    ubyte flags <bgcolor=CL_SINGLEVALUE, comment="Image flags">;
+    ImageType image_type <bgcolor=CL_SINGLEVALUE, comment="Image type">;
+    QBKey Checksum <bgcolor=CL_CHECKSUM, comment="Image identifier">;
+    ushort BaseWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+    ushort BaseHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+
+    if (!thaw)
+        ushort always_one_a <hidden=true, bgcolor=CL_PADDING>;
+
+    ushort ActualWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+    ushort ActualHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+
+    if (!thaw)
+        ushort always_one_b <hidden=true, bgcolor=CL_PADDING>;
+
+    ubyte Levels <bgcolor=CL_SINGLEVALUE, comment="Mipmap count">;
+    ubyte TexelDepth <bgcolor=CL_SINGLEVALUE, comment="Bits Per Pixel">;
+    ubyte DXT <bgcolor=CL_SINGLEVALUE, comment="Compression level">;
+    ubyte null_byte <hidden=true, bgcolor=CL_PADDING>;
+
+    if (!thaw)
+        uint null <hidden=true, bgcolor=CL_PADDING>;
+
+    RelativeOffset pD3DTexture(CurrentTextureStart) <bgcolor=CL_POINTER, comment="Points to texture data, engine will point this to created IDirect3DTexture9">;
+    uint size <bgcolor=CL_SINGLEVALUE, comment="Size of texture data">;
+
+    local uint term_peek = ReadInt();
+
+    uint platform_maybe <bgcolor=CL_PADDING, comment="Seems to be 1 on PS3, and THAW 360">;
+    
+    // Check platform, X360 has unique identifiers
+    if (flags == 0x11 || flags == 0x02)
+        xbox = 1;
+
+    /*
+    local uint old_off = FTell();
+
+    FSeek(CurrentTextureStart + pD3DTexture.offset);
+
+    if (platform_maybe == 1)
+    {
+        FSeek(CurrentTextureStart + 4096);
+    }
+    else if (xbox)
+    {
+        ImgXboxHeader xbox_info;
+
+        if (term_peek > 0)
+            FSeek(term_peek);
+        else
+            FSeek(CurrentTextureStart + 4096);
+    }
+
+    ubyte image_data[size] <bgcolor=0x6666FF>;
+
+    FSeek(old_off);
+    */
+} sTexture_v8_header;
+
+typedef struct
+{
+    ubyte header_size <bgcolor=CL_SINGLEVALUE, comment="Size of texture header">;
+
+    ubyte flags <bgcolor=CL_SINGLEVALUE, comment="Image flags">;
+    ImageType image_type <bgcolor=CL_SINGLEVALUE, comment="Image type">;
+    QBKey Checksum <bgcolor=CL_CHECKSUM, comment="Image identifier">;
+    ushort BaseWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+    ushort BaseHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+
+    ushort always_one_a <hidden=true, bgcolor=CL_PADDING>;
+
+    ushort ActualWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+    ushort ActualHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+
+    ushort always_one_b <hidden=true, bgcolor=CL_PADDING>;
+
+    ubyte Levels <bgcolor=CL_SINGLEVALUE, comment="Mipmap count">;
+    ubyte TexelDepth <bgcolor=CL_SINGLEVALUE, comment="Bits Per Pixel">;
+    ubyte DXT <bgcolor=CL_SINGLEVALUE, comment="Compression level">;
+    ubyte null_byte <hidden=true, bgcolor=CL_PADDING>;
+
+    uint plat_offset <bgcolor=CL_SINGLEVALUE, comment="For X360, offset to texture data if > 0, else 4096">;
+
+    RelativeOffset pD3DTexture(CurrentTextureStart) <bgcolor=CL_POINTER, comment="Points to texture data, engine will point this to created IDirect3DTexture9">;
+    uint size <bgcolor=CL_SINGLEVALUE, comment="Size of texture data">;
+
+    RelativeOffset platform_texture_data(0) <bgcolor=CL_SINGLEVALUE, comment="Offset to REAL texture data, if plat">;
+} sTexture_v10_header;
+
+typedef struct
+{
+    ubyte header_size <bgcolor=CL_SINGLEVALUE, comment="Size of texture header">;
+
+    ubyte flags <bgcolor=CL_SINGLEVALUE, comment="Image flags">;
+    ImageType image_type <bgcolor=CL_SINGLEVALUE, comment="Image type">;
+    QBKey Checksum <bgcolor=CL_CHECKSUM, comment="Image identifier">;
+    ushort BaseWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+    ushort BaseHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+
+    ushort always_one_a <hidden=true, bgcolor=CL_PADDING>;
+
+    ushort ActualWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+    ushort ActualHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+    
+    ushort always_one_b <hidden=true, bgcolor=CL_PADDING>;
+
+    ubyte Levels <bgcolor=CL_SINGLEVALUE, comment="Mipmap count">;
+    ubyte TexelDepth <bgcolor=CL_SINGLEVALUE, comment="Bits Per Pixel">;
+    ubyte DXT <bgcolor=CL_SINGLEVALUE, comment="Compression level">;
+    ubyte Unknown <bgcolor=CL_SINGLEVALUE>;
+
+    uint null <hidden=true, bgcolor=CL_PADDING>;
+    
+    uint plat_offset <bgcolor=CL_SINGLEVALUE, comment="For PS3, offset to texture data in VRAM file">;
+    
+    uint size <bgcolor=CL_SINGLEVALUE, comment="Size of texture data">;
+    uint platform_maybe <bgcolor=CL_SINGLEVALUE, comment="Seems to be 1 on PS3, and THAW 360">;
+    RelativeOffset pD3DTexture(CurrentTextureStart) <bgcolor=CL_POINTER, comment="Points to texture data, engine will point this to created IDirect3DTexture9">;
+    uint unknown_zero <hidden=true, bgcolor=CL_PADDING>;
+} sTexture_v12_header;
+
+// ------------------------------------------------
+
+typedef struct
+{
+    #ifdef ABSOLUTE_STEXTURE_OFFSETS
+        CurrentTextureStart = 0;
+    #else
+        CurrentTextureStart = FTell();
+    #endif
+   
+    sTextureVersion version <bgcolor=CL_SINGLEVALUE, comment="Texture version?">;
+    CurrentTextureVersion = version;
+    
+    if (version != TEX_THAW_X360 && version != TEX_PC_X360 && version != TEX_PS3 && version != TEX_THAW_XBOX)
+    {
+        Printf("Unknown sTexture version %d.\n", version);
+        return;
+    }
+    
+    switch (version)
+    {
+        case TEX_THAW_XBOX:
+            return;
+            break;
+        case TEX_THAW_X360:
+            sTexture_v8_header header;
+            break;
+        case TEX_PC_X360:
+            sTexture_v10_header header;
+            break;
+        case TEX_PS3:
+            sTexture_v12_header header;
+            break;
+    };
+    
+    local uint old_off = FTell();
+
+    // Seek to the current texture offset.
+    FSeek(CurrentTextureStart + header.pD3DTexture.offset);
+    
+    // Peek to see if this starts with DDS.
+    // If so, then it's a PC DDS texture.
+    
+    local uint testMagic = ReadInt();
+    
+    if (testMagic == 0x44445320 || testMagic == 0x20534444)
+        ubyte image_data[header.size] <bgcolor=0x6666FF, comment="Raw DDS image">;
+    else if (testMagic == 0x89504E47)
+        ubyte image_data[header.size] <bgcolor=0x6666FF, comment="Raw PNG image">;
+    else
+    {
+        switch (CurrentTextureVersion)
+        {
+            case TEX_THAW_X360:
+                ImgXboxHeader plat_metadata;
+                FSeek(CurrentTextureStart + 4096);
+                
+                ubyte image_data[header.size] <bgcolor=0x6666FF, comment="Swizzled X360 image">;
+                break;
+                
+            case TEX_PC_X360:
+                if (!(header.flags & TEXTURE_FLAG_PC))
+                {
+                    ImgXboxHeader plat_metadata;
+                    FSeek(CurrentTextureStart + 4096);
+
+                    ubyte image_data[header.size] <bgcolor=0x6666FF, comment="Swizzled X360 image">;
+                }
+                else
+                    ubyte image_data[header.size] <bgcolor=0x6666FF, comment="Raw PC image">;
+                    
+                break;
+                
+            case TEX_PS3:
+                ImgPS3Header plat_metadata;
+                break;
+        }
+    }
+    
+    FSeek(old_off);
+    
+    return;
+    
+    ubyte header_size <bgcolor=CL_SINGLEVALUE, comment="Size of texture header">;
+
+    // THAW texture
+    if (version == TEX_THAW_X360)
+        thaw = 1;
+
+    ubyte flags <bgcolor=CL_SINGLEVALUE, comment="Image flags">;
+    ImageType image_type <bgcolor=CL_SINGLEVALUE, comment="Image type">;
+    QBKey Checksum <bgcolor=CL_CHECKSUM, comment="Image identifier">;
+    ushort BaseWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+    ushort BaseHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+
+    if (!thaw)
+        ushort always_one_a <hidden=true, bgcolor=CL_PADDING>;
+
+    ushort ActualWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+    ushort ActualHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+
+    if (!thaw)
+        ushort always_one_b <hidden=true, bgcolor=CL_PADDING>;
+
+    ubyte Levels <bgcolor=CL_SINGLEVALUE, comment="Mipmap count">;
+    ubyte TexelDepth <bgcolor=CL_SINGLEVALUE, comment="Bits Per Pixel">;
+    ubyte DXT <bgcolor=CL_SINGLEVALUE, comment="Compression level">;
+    ubyte null_byte <hidden=true, bgcolor=CL_PADDING>;
+
+    if (!thaw)
+        uint null <hidden=true, bgcolor=CL_PADDING>;
+
+    RelativeOffset pD3DTexture(CurrentTextureStart) <bgcolor=CL_POINTER, comment="Points to texture data, engine will point this to created IDirect3DTexture9">;
+    uint size <bgcolor=CL_SINGLEVALUE, comment="Size of texture data">;
+
+    local uint term_peek = ReadInt();
+
+    uint platform_maybe <bgcolor=CL_PADDING, comment="Seems to be 1 on PS3, and THAW 360">;
+    
+    // Check platform, X360 has unique identifiers
+    if (flags == 0x11 || flags == 0x02)
+        xbox = 1;
+
+    local uint old_off = FTell();
+
+    FSeek(CurrentTextureStart + pD3DTexture.offset);
+
+    if (xbox)
+    {
+        ImgXboxHeader xbox_info;
+
+        if (term_peek > 0)
+            FSeek(AbsOffset(term));
+        else
+            FSeek(CurrentTextureStart + 4096);
+    }
+
+    ubyte image_data[size] <bgcolor=0x6666FF>;
+
+    FSeek(old_off);
+} sTexture <read=Read_sTexture>;
+
+string Read_sTexture(sTexture &header)
+{
+    switch (header.version)
+    {
+        case TEX_PC_X360:
+            return Str("%d bytes", header.header.size);
+            break;
+            
+        case TEX_PS3:
+            return Str("[%s] %s, [%dx%d / %dx%d], %dbpp, %d mips, DXT%d", ReadImageType(header.header.image_type), ReadQBKey(header.header.Checksum), header.header.BaseWidth, header.header.BaseHeight, header.header.ActualWidth, header.header.ActualHeight, header.header.TexelDepth, header.header.Levels, header.header.DXT);
+            break;
+            
+        default:
+            return "";
+            break;
+    }
+    
+    
+    /*
+    local string format_string;
+
+    if (header.xbox)
+        SPrintf(format_string, ", %s", ReadImgXboxHeader(header.xbox_info));
+
+    return Str("[%s] %s, [%dx%d / %dx%d], %dbpp, %d mips, DXT%d%s", PrintImgType(header.image_type), ReadQBKey(header.Checksum), header.BaseWidth, header.BaseHeight, header.ActualWidth, header.ActualHeight, header.TexelDepth, header.Levels, header.DXT, format_string);
+    */
+}

@@ -1,0 +1,9 @@
+//------------------------------------------------
+// Texture dictionary.
+//------------------------------------------------
+
+typedef struct
+{
+    local uint i;
+    int raster_count;
+} RWTextureDictionary;

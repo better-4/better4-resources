@@ -1,0 +1,156 @@
+//------------------------------------------------
+// THDJ / THPG(?) PS2 .tex file
+//------------------------------------------------
+
+#include "../Common.bt"
+
+#define CL_PALETTECOLOR                 0xFFAAAA
+
+local uint TexDataStart;
+
+enum <ushort> ImageFormat
+{
+    FMT_P16_8BIT = 1,
+    FMT_P16_4BIT = 5,
+};
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} PS2PaletteColor <read=Str("%d, %d, %d, %d", r, g, b, a)>;
+
+typedef struct
+{
+    ushort value;
+} PS2SmallPaletteColor <read=Str("%d", value)>;
+
+typedef struct
+{
+    local uint info_start = FTell();
+    
+    QBKey checksum_a <bgcolor=CL_CHECKSUM>;
+    QBKey checksum_b <bgcolor=CL_CHECKSUM>;
+    
+    uint val_a;
+    ImageFormat image_format;
+    ubyte val_c;
+    ubyte val_d;
+    
+    uint unk_a;
+    
+    ushort unk_b;
+    ubyte fmt_a;
+    ubyte fmt_b;
+    
+    uint unk_c;
+    uint unk_d;
+    
+    FSkip(8);
+    
+    RelativeOffset data_offset(TexDataStart);
+    
+    uint data_size;
+    uint data_size_with_palette;
+    
+    uint palette_size_in_bytes;
+    ubyte maybe_constant_b;
+    
+    ubyte texture_index;
+    
+    FSkip(4);
+    
+    ubyte width_byte;
+    ubyte height_byte;
+    
+    FSeek(AbsOffset(data_offset));
+    
+    if (image_format == FMT_P16_8BIT)
+    {
+        FSeek(FTell() - 512);
+        PS2SmallPaletteColor colors[256] <bgcolor=CL_PALETTECOLOR>;
+    }
+    
+    else if (image_format == FMT_P16_4BIT)
+    {
+        FSeek(FTell() - 64);
+        PS2PaletteColor colors[16] <bgcolor=CL_PALETTECOLOR>;
+    }
+    
+    FSeek(info_start + 64);
+} TextureInfoA <read=Str("%d.) %s, %d bytes at %d, %s", texture_index, ReadQBKey(checksum_a), data_size, AbsOffset(data_offset), EnumToString(image_format))>;
+
+typedef struct
+{
+    local uint start_pos = FTell();
+    
+    uint magic;
+    
+    FSkip(8);
+    
+    uint magic_2;
+    uint four;
+    uint magic_3;
+    uint num;
+    
+    FSkip(8);
+    
+    ubyte unkA;
+    ubyte unkB;
+    ubyte unkC;
+    ubyte unkD;
+    
+    uint num;
+    
+    ubyte data[(start_pos + 128) - FTell()];
+    
+    FSeek(start_pos + 128);
+} TextureUnk;
+
+typedef struct
+{
+    ushort version_maybe <bgcolor=CL_SINGLEVALUE>;
+    ushort version_b <bgcolor=CL_SINGLEVALUE>;
+    uint texture_count <bgcolor=CL_SINGLEVALUE>;
+    RelativeOffset unk_start(0) <bgcolor=CL_POINTER>;
+    RelativeOffset data_start(0) <bgcolor=CL_POINTER>;
+    TexDataStart = AbsOffset(data_start);
+    
+    FSkip(8);
+    
+    QBKey some_checksum <bgcolor=CL_CHECKSUM>;
+    
+    FSkip(36);
+    
+    QBKey constant_checksum <bgcolor=CL_CHECKSUM, comment="???">;
+    
+    FSkip(8);
+    
+    uint texture_count_again <bgcolor=CL_SINGLEVALUE>;
+    
+    FSkip(8);
+    
+    uint unk <bgcolor=CL_SINGLEVALUE>;
+    
+    FSkip(4);
+    
+    if (texture_count)
+        TextureInfoA infos[texture_count] <optimize=false>;
+        
+    FSeek(AbsOffset(unk_start));
+    
+    local uint test_int;
+    
+    test_int = ReadInt();
+    
+    while (test_int == 0x10000006)
+    {
+        TextureUnk unkObj <bgcolor=0xAAAAAA>;
+        test_int = ReadInt();
+    }
+} TexFile;
+
+LittleEndian();
+TexFile file;

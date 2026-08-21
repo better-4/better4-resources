@@ -1,0 +1,399 @@
+//------------------------------------------------
+// MLX file, contains geometry
+//------------------------------------------------
+
+#include "../Common.bt"
+
+#define VERTEX_SIZE             96
+
+#define CL_VERTEX               0xFFFFAA
+#define CL_FACEINDICES          0xDDDD88
+
+#define CL_MESHINFO             0xAAFFFF
+
+#define CL_CHUNKID              0xFFAAFF
+#define CL_CHUNKDATA            0xDD88DD
+#define CL_CHUNKVALUE           0xBB66BB
+
+#define CL_METADATA_DATA        0xBBFF66
+#define CL_METADATA_ID          0xCCFF77
+
+#define MLX_RIDE                2
+#define MLX_SHRED               3
+
+local uint CurrentMLXVersion = 0;
+
+typedef struct
+{
+    Vec3 pos;
+    ubyte bones[4];
+    Vec3 normal;
+    ubyte weights[4];
+    Vec2 uv_a;
+    Vec2 uv_b;
+    Vec2 uv_c;
+    Vec2 uv_d;
+    Vec2 uv_e;
+    
+    uint zero[3] <hidden=true>;
+    
+    uint constant[3];
+} Vertex;
+
+// --------------------------------------
+
+typedef struct
+{
+    local uint start = FTell();
+    
+    ubyte info_type;
+    ubyte zero;
+    
+    ushort short_value;
+    ubyte one;
+    
+    FSeek(start + 32);
+    
+    uint vtx_count_a;
+    uint vtx_count_b;
+    uint chunk_count;
+    uint mlx_size_maybe;
+    uint number;
+    uint offset;
+    
+    FSeek(start + 56);
+} VertexInformation <read=Str("%d vertices, %d chunks", vtx_count_a, chunk_count)>;
+
+typedef struct
+{
+    local uint start = FTell();
+    
+    ubyte info_type;
+    ubyte zero;
+    
+    ushort short_value;
+    ubyte one;
+    
+    FSeek(start + 32);
+    
+    uint indices_count;
+    uint prim_type_maybe;
+    uint chunk_count;
+    uint indices_block_size;
+    uint number;
+    uint offset;
+    
+    FSeek(start + 56);
+} FaceInformation <read=Str("%d indices, %d bytes, Prim Type %d", indices_count, indices_block_size, prim_type_maybe)>;
+
+// --------------------------------------
+
+typedef struct (uint data_start)
+{ 
+    uint id <bgcolor=CL_CHUNKID>;
+    
+    ubyte value_type <bgcolor=CL_CHUNKDATA>;
+    ubyte byte_b <bgcolor=CL_CHUNKDATA>;
+    ubyte byte_c <bgcolor=CL_CHUNKDATA>;
+    ubyte byte_d <bgcolor=CL_CHUNKDATA>;
+    
+    uint value_count <bgcolor=CL_CHUNKDATA>;
+    RelativeOffset pos_Value(data_start) <bgcolor=CL_CHUNKDATA>;
+    uint e <bgcolor=CL_CHUNKDATA>;
+    uint f <bgcolor=CL_CHUNKDATA>;
+    
+    local uint this_off = FTell();
+    
+    // Vec4?
+    if (value_type == 1 && value_count)
+    {
+        FSeek(AbsOffset(pos_Value));
+        
+        Vec4 value <bgcolor=CL_CHUNKVALUE>;
+        
+        FSeek(this_off);
+    }
+} MeshChunk <read=Str("0x%08x: Type %d, %d value(s)", id, value_type, value_count)>;
+
+// --------------------------------------
+
+local uint TotalFaceInfoIndices;
+
+typedef struct (uint block_start)
+{
+    ushort flags_maybe;
+    ushort unk_index;
+    
+    int values[2];
+    
+    RelativeOffset pos_Indices(block_start);
+    int indices_count;
+    
+    TotalFaceInfoIndices += indices_count;
+    
+    local uint old_off = FTell();
+    
+    FSeek(AbsOffset(pos_Indices));
+    
+    ushort indices[indices_count] <bgcolor=CL_FACEINDICES>;
+    
+    FSeek(old_off);
+} MGXTriangleSection <read=Str("%d indices", indices_count)>;
+
+typedef struct
+{
+    local uint block_start = FTell();
+    
+    ushort lod_count_maybe;
+    ushort zero;
+    
+    RelativeOffset pos_BlockUnknowns(block_start) <bgcolor=CL_POINTER>;
+    
+    ubyte possibly_constant_a;
+    ubyte possibly_constant_b;
+    
+    ubyte zero;
+    ubyte primTypeMaybe;
+    
+    uint sectionCount;
+    uint unkAB;
+    
+    FSkip(28);
+    
+    TotalFaceInfoIndices = 0;
+    
+    // We know that each section is 20 bytes long
+    
+    local uint s;
+    
+    for (s=0; s<sectionCount; s++)
+    {
+        MGXTriangleSection sections(block_start) <optimize=false>;
+    }
+    
+    local uint total_indices = TotalFaceInfoIndices;
+} MGXFaceBlock <read=Str("%d indices", total_indices)>;
+
+// --------------------------------------
+
+typedef struct
+{
+    float floats[16];
+} ShredVertex;
+
+typedef struct
+{
+    QBKey magic <bgcolor=CL_CHECKSUM>;
+    ushort verts_in_chunk <bgcolor=CL_SINGLEVALUE>;
+    ushort material_maybe <bgcolor=CL_SINGLEVALUE>;
+    
+    QBKey magics_2[14] <bgcolor=CL_PARSED>;
+    
+    ShredVertex vert[verts_in_chunk] <bgcolor=CL_VERTEX>;
+} ShredVertexChunk <read=Str("%d vertices, %d mat?", verts_in_chunk, material_maybe)>;
+
+typedef struct
+{
+    local uint buffer_start = FTell();
+    
+    uint vertexBufferSize <bgcolor=CL_SINGLEVALUE>;
+    
+    QBKey magics[15] <bgcolor=CL_PARSED>;
+    
+    while (FTell() < buffer_start + vertexBufferSize)
+    {
+        ShredVertexChunk chunk;
+    }
+} ShredVertexBuffer;
+
+// --------------------------------------
+
+typedef struct
+{
+    local uint data_start = FTell();
+    
+    ushort magic <bgcolor=0xFF0000>;
+    ushort version_maybe <bgcolor=CL_SINGLEVALUE, comment="40 in Ride, 49 in Shred">;
+    
+    FSkip(12);
+    
+    float matrix[16] <bgcolor=CL_PARSED>;
+    float bounding_box_maybe[12] <bgcolor=CL_PARSED>;
+    
+    if (CurrentMLXVersion == MLX_SHRED)
+    {
+        uint object_checksum <bgcolor=CL_CHECKSUM>;
+        int possible_reserved_offset[2];
+    }
+    else
+    {
+        int possible_reserved_offset[3];
+    }
+    
+    if (CurrentMLXVersion == MLX_SHRED)
+    {
+        ushort short_a;
+        ushort short_b;
+    }
+
+    RelativeOffset pos_VertexInformation(data_start) <bgcolor=CL_POINTER>;
+    int possible_reserved_offset;
+    RelativeOffset pos_FaceInformation(data_start) <bgcolor=CL_POINTER>;
+    
+    if (CurrentMLXVersion == MLX_RIDE)
+    {
+        ushort short_a;
+        ushort short_b;
+    }
+    
+    RelativeOffset pos_VertexBuffer(data_start) <bgcolor=CL_POINTER>;
+    RelativeOffset pos_UnkVector(data_start) <bgcolor=CL_POINTER>;
+    
+    int possible_reserved_offset;
+    
+    uint unk_count;
+    
+    int possible_reserved_offset;
+    int possible_reserved_offset;
+    
+    if (CurrentMLXVersion == MLX_RIDE)
+        RelativeOffset pos_MGXFaceIndices(data_start) <bgcolor=CL_POINTER>;
+    
+    // -------------
+    
+    FSeek(AbsOffset(pos_VertexInformation));
+    VertexInformation vert_info <bgcolor=CL_MESHINFO>;
+    FSeek(AbsOffset(pos_FaceInformation));
+    FaceInformation face_info <bgcolor=CL_MESHINFO>;
+    
+    if (CurrentMLXVersion == MLX_RIDE)
+    {
+        FSeek(data_start + 200);
+        
+        RelativeOffset pos_StringTableOffsets(data_start) <bgcolor=CL_POINTER>;
+        RelativeOffset pos_ChecksumsMaybe(data_start) <bgcolor=CL_POINTER>;
+        RelativeOffset pos_ShaderTableA(data_start) <bgcolor=CL_POINTER>;
+        RelativeOffset pos_UnkTableA(data_start) <bgcolor=CL_POINTER>;
+        RelativeOffset pos_ShaderTableB(data_start) <bgcolor=CL_POINTER>;
+        RelativeOffset pos_UnkValues(data_start) <bgcolor=CL_POINTER>;
+        
+        uint object_checksum <bgcolor=CL_CHECKSUM>;
+    
+        FSkip(60);
+        
+        RelativeOffset pos_MyShaderValues(data_start) <bgcolor=CL_POINTER>;
+        ubyte myShaderValueCount;
+    }
+    
+    if (CurrentMLXVersion == MLX_SHRED)
+    {
+        FSeek(AbsOffset(pos_VertexBuffer));
+        
+        ShredVertexBuffer vertex_buffer;
+    }
+    
+    else
+    {
+        FSeek(AbsOffset(pos_VertexBuffer));
+        
+        Vertex vertices[vert_info.vtx_count_a] <bgcolor=CL_VERTEX>;
+
+        local uint l;
+        
+        for (l=0; l<myShaderValueCount; l++)
+        {
+            RelativeOffset pos_Chunks(data_start) <bgcolor=CL_POINTER>;
+        }
+        
+        local uint old_off = FTell();
+    
+        for (l=0; l<myShaderValueCount; l++)
+        {
+            FSeek(AbsOffset(pos_Chunks[l]));
+            
+            MeshChunk chunk(data_start);
+            
+            FSeek(old_off);
+        }
+        
+        if (pos_MGXFaceIndices.offset != 0xFFFFFFFF)
+        {
+            FSeek(AbsOffset(pos_MGXFaceIndices));
+            
+            MGXFaceBlock mgxFaceBlock;
+            
+            FSeek(old_off);
+        }
+    }
+} MeshBlock;
+
+typedef struct (uint dataStart)
+{
+    local uint start = FTell();
+    
+    if (CurrentMLXVersion == MLX_SHRED)
+    {
+        uint object_id <bgcolor=CL_METADATA_ID>;
+        RelativeOffset pos_MGXObject(dataStart) <bgcolor=CL_METADATA_DATA>;
+        uint unk <bgcolor=CL_METADATA_DATA>;
+    }
+    else
+    {
+        uint unk <bgcolor=CL_METADATA_DATA>;
+        uint object_id <bgcolor=CL_METADATA_ID>;
+        RelativeOffset pos_MGXObject(dataStart) <bgcolor=CL_METADATA_DATA>;
+    }
+    
+    uint faceBlockOffset <bgcolor=CL_METADATA_DATA>;
+    uint unkC <bgcolor=CL_METADATA_DATA>;
+    
+    RelativeOffset objectDataEnd(AbsOffset(pos_MGXObject)) <bgcolor=CL_METADATA_DATA>;
+    uint faceBlockSize <bgcolor=CL_METADATA_DATA>;
+    
+    FSeek(AbsOffset(pos_MGXObject));
+    
+    MeshBlock block;
+    
+    FSeek(start + 28);
+} ObjectMetadata <read=Str("0x%08x", object_id)>;
+
+typedef struct
+{
+    ubyte magic[2];
+    
+    if (magic[0] != 0xFA && magic[1] != 0xFA)
+    {
+        Printf("Not a valid MLX file.\n");
+        return;
+    }
+    
+    ushort version;
+    
+    if (version != MLX_RIDE && version != MLX_SHRED)
+    {
+        Printf("MLX version %d not supported.\n", version);
+        return;
+    }
+    
+    CurrentMLXVersion = version;
+    
+    FSkip(12);
+    
+    uint object_count;
+    
+    RelativeOffset firstMeshPos(0) <bgcolor=CL_POINTER>;
+    
+    uint mlxFileSizeA; 
+    
+    // START OF J
+    
+    local uint l;
+    
+    for (l=0; l<object_count; l++)
+    {
+        ObjectMetadata metadata(AbsOffset(firstMeshPos));
+    }
+} MGXFile;
+
+BigEndian();
+MGXFile file;

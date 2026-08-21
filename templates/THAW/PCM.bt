@@ -1,0 +1,50 @@
+//------------------------------------------------
+// PCM.dat file, contains sounds
+// Mostly used by THUG2, could be used by other games?
+//------------------------------------------------
+
+#include "../Common.bt"
+
+#define CL_PCMCHECKSUM              0xDDFFDD
+#define CL_PCMSTART                 0xCCEECC
+#define CL_PCMSIZE                  0xBBDDBB
+#define CL_PCMUNK                   0xAACCAA
+
+#define PCMVERSION_THAW_X360        0
+#define PCMVERSION_THAW             1
+#define PCMVERSION_XBOX             2
+
+local ubyte PCMVersion;
+
+// -----------------------------------------------
+
+typedef struct
+{
+    QBKey checksum <bgcolor=CL_PCMCHECKSUM>;
+    uint file_start <bgcolor=CL_PCMSTART>;
+    uint file_size <bgcolor=CL_PCMSIZE>;
+    
+    if (PCMVersion == PCMVERSION_THAW_X360)
+    {
+        uint sample_rate <bgcolor=CL_PCMUNK>;
+        ubyte unkB <bgcolor=CL_PCMUNK>;
+        ubyte unk <bgcolor=CL_PCMUNK>;
+        ushort channels <bgcolor=CL_PCMUNK>;
+    }
+} PCMHeader <read=ReadPCMHeader>;
+
+string ReadPCMHeader(PCMHeader &header)
+{
+    local string main = Str("%s @%d, %d bytes", ReadQBKey(header.checksum), header.file_start, header.file_size);
+    
+    if (PCMVersion == PCMVERSION_THAW_X360)
+        return Str("%s, %dhz, %s", main, header.sample_rate, (header.channels == 1) ? "Mono" : "Stereo");
+        
+    return Str("%s", main);
+}
+
+typedef struct
+{
+    uint num_streams <bgcolor=CL_SINGLEVALUE>;
+    PCMHeader header[num_streams] <optimize=false>;
+} PCMFile;

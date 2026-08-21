@@ -1,0 +1,76 @@
+//------------------------------------------------
+// VolumeShadow file. (.shd)
+//------------------------------------------------
+
+#include "../Common.bt"
+
+#define CL_SHDVERT_COUNT          0xFFFF99
+#define CL_SHDVERT_POS            0xFFEE88
+#define CL_SHDVERT_WGT            0xEEDD77
+#define CL_SHDVERT_VAL            0xDDCC66
+
+#define CL_SHDFACE_COUNT          0x99FFFF
+#define CL_SHDFACE_IND            0x88EEFF
+
+typedef struct
+{
+    Vec3 pos <bgcolor=CL_SHDVERT_POS>;
+    ubyte bones[4] <bgcolor=CL_SHDVERT_WGT>;
+    Vec3 unkA <bgcolor=CL_SHDVERT_VAL>;
+    Vec3 unkB <bgcolor=CL_SHDVERT_VAL>;
+} SHDVertex <read=Str("%s, [%d, %d, %d, %d]", ReadVec3(pos), bones[0], bones[1], bones[2], bones[3])>;
+
+typedef struct
+{
+    uint zero_a <bgcolor=CL_SINGLEVALUE>;
+    uint zero_b <bgcolor=CL_SINGLEVALUE>;
+    QBKey key <bgcolor=CL_CHECKSUM>;
+    uint num_a <bgcolor=CL_SINGLEVALUE>;
+    RelativeOffset pt_metadata(0) <bgcolor=CL_POINTER>;
+    int nulls[7] <bgcolor=CL_SINGLEVALUE>;
+} SHDHeader <read=Str("%d: %s", num_a, ReadQBKey(key))>;
+
+typedef struct
+{
+    RelativeOffset pt_vertices(0) <bgcolor=CL_POINTER>;
+    RelativeOffset pt_faces(0) <bgcolor=CL_POINTER>;
+    uint face_count <bgcolor=CL_SINGLEVALUE>;
+    uint vertex_stride <bgcolor=CL_SINGLEVALUE>;
+    uint vertex_count <bgcolor=CL_SINGLEVALUE>;
+    short nums[6] <bgcolor=CL_SINGLEVALUE>;
+    byte padding[16] <bgcolor=CL_PADDING>;
+} SHDMeta <read=Str("%d faces, %d vertices (%d stride)", face_count, vertex_count, vertex_stride)>;
+
+typedef struct (SHDMeta &meta)
+{
+    uint vertexBufferSize <bgcolor=CL_SHDVERT_COUNT>;
+    SHDVertex verts[meta.vertex_count];
+} SHDVertexBuffer <read=Str("%d bytes", vertexBufferSize)>;
+
+typedef struct (SHDMeta &meta)
+{
+    uint faceBufferSize <bgcolor=CL_SHDFACE_COUNT>;
+    ushort indices[meta.face_count] <bgcolor=CL_SHDFACE_IND>;
+} SHDFaceBuffer <read=Str("%d bytes", faceBufferSize)>;
+
+typedef struct
+{
+    local uint old_off;
+    
+    SHDHeader header;
+    
+    old_off = FTell();
+    FSeek(AbsOffset(header.pt_metadata));
+    SHDMeta metadata;
+    
+    FSeek(AbsOffset(metadata.pt_vertices));
+    SHDVertexBuffer verts(metadata);
+    
+    FSeek(AbsOffset(metadata.pt_faces));
+    SHDFaceBuffer faces(metadata);
+    
+    FSeek(old_off);
+} SHDFile;
+
+LittleEndian();
+SHDFile file;

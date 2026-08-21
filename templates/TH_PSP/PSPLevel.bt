@@ -1,0 +1,165 @@
+//------------------------------------------------
+// .psp_level file
+// I assume this is what it's called.
+//------------------------------------------------
+
+#include "../Common.bt"
+
+local uint LvlObjChunkLength = 0;
+local uint TexChunkLength = 0;
+local uint VertChunkLength = 0;
+local uint BBoxCount = 0;
+local uint PrimsCount = 0;
+
+typedef struct
+{
+    int bytes_filetype_mark <bgcolor=CL_SINGLEVALUE, comment="Magic">;
+    int bytes_lvlobj_count <bgcolor=CL_SINGLEVALUE, comment="Each lvlobj chunk is 16 bytes, count * 64 gets length">;
+    int bytes_tex_length <bgcolor=CL_SINGLEVALUE, comment="Length of textures chunk">;
+    int bytes_bboxes_count <comment="Each bbox chunk is 16 bytes, count * 16 gets length">;
+    int bytes_vert_length;
+    int bytes_lvlobj_length;
+    int bytes_unknown1_length;
+    int bytes_unknown2_length;
+    int bytes_texcmds_length;
+    int bytes_prims_count <bgcolor=CL_SINGLEVALUE, comment="Prims count?">;
+    int bytes_unknown3_length;
+    ushort lvlOffsetA;
+    ushort lvlOffsetB;
+    ushort lvlOffsetC;
+    ushort lvlOffsetD;
+    int unkG;
+    int unkH;
+    ubyte colors_maybe[4];
+    
+    LvlObjChunkLength = bytes_lvlobj_count * 64;
+    TexChunkLength = bytes_tex_length;
+    VertChunkLength = bytes_vert_length;
+    BBoxCount = bytes_bboxes_count;
+    PrimsCount = bytes_prims_count;
+} PSPLevelHeader;
+
+// ----------------------------------------------------------------------------
+
+typedef struct
+{
+    if (LvlObjChunkLength)
+        ubyte lvlobj_bytes[LvlObjChunkLength] <bgcolor=0xFFAAAA>;
+} PSPLvlObjChunk;
+
+// ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+
+typedef struct
+{
+    if (TexChunkLength)
+        ubyte texture_bytes[TexChunkLength] <bgcolor=0xFFAAAA>;
+} PSPTextureChunk;
+
+// ----------------------------------------------------------------------------
+
+typedef struct
+{
+    hfloat x;
+    hfloat y;
+    hfloat z;
+    hfloat w;
+} PSPVec4 <read=ReadPSPVec4>;
+
+string ReadPSPVec4(PSPVec4 &vec)
+{
+    return Str("(%f, %f, %f, %f)", vec.x, vec.y, vec.z, vec.w);
+}
+
+typedef struct
+{
+    PSPVec4 bounds_min;
+    PSPVec4 bounds_max;
+} PSPBBox <read=Str("%s, %s", ReadPSPVec4(bounds_min), ReadPSPVec4(bounds_max))>;
+
+typedef struct
+{
+    if (BBoxCount)
+        PSPBBox bounding_boxes[BBoxCount] <optimize=true, bgcolor=0xAAFFAA>;
+} PSPBBoxChunk;
+
+// ----------------------------------------------------------------------------
+
+typedef struct
+{
+    short uv_x;
+    short uv_y;
+    
+    byte col_rg;
+    byte col_ba;
+    
+    short pos_x;
+    short pos_y;
+    short pos_z;
+} PSPVertices <read=ReadPSPVertex>;
+
+string ReadPSPVertex(PSPVertices &vert)
+{
+    local float x = vert.pos_x / 1.0;
+    local float y = vert.pos_x / 1.0;
+    local float z = vert.pos_y / 1.0;
+    
+    local float u = vert.uv_x / 32768.0;
+    local float v = vert.uv_y / 32768.0;
+    
+    local ubyte r = ((vert.col_rg >> 4) & 0x0F) << 4;
+    local ubyte g = (vert.col_rg & 0x0F) << 4;
+    local ubyte b = ((vert.col_ba >> 4) & 0x0F) << 4;
+    local ubyte a = (vert.col_ba & 0x0F) << 4;
+    
+    return Str("(%f, %f, %f), %f, %f [%d, %d, %d, %d]", x, y, z, u, v, r, g, b, a);
+}
+
+typedef struct
+{
+    if (VertChunkLength)
+        PSPVertices vertices_struct[VertChunkLength / 12] <optimize=true, bgcolor=0xAAFFAA>;
+} PSPVertexChunk;
+
+// ----------------------------------------------------------------------------
+
+typedef struct
+{
+    ushort prims[PrimsCount] <bgcolor=0xFFAAFF, comment="Flags?">;
+} PSPPrimsChunk;
+
+// ----------------------------------------------------------------------------
+
+typedef struct
+{
+    int unkA <bgcolor=CL_SINGLEVALUE, comment="Constant">;
+    int unkB <bgcolor=CL_SINGLEVALUE, comment="Constant">;
+    int unkC <bgcolor=CL_SINGLEVALUE, comment="Constant">;
+    
+    int unkD;
+} PSPLevelObjectChunk;
+
+// ----------------------------------------------------------------------------
+
+typedef struct
+{
+    PSPLevelHeader header <bgcolor=0xaaaaaa>;
+    PSPLvlObjChunk lvlobj;
+    PSPTextureChunk textures;
+    PSPBBoxChunk bboxes;
+    PSPVertexChunk vertices;
+    PSPLevelObjectChunk objects;
+    
+    if (PrimsCount)
+    {
+        local uint primsPos = FileSize() - (2 * PrimsCount);
+        Printf("Level object(?) chunk is %d bytes\n", primsPos - FTell());
+        
+        FSeek(primsPos);
+        PSPPrimsChunk prims;
+    }
+} PSPLevelFile;
+
+LittleEndian();
+PSPLevelFile file;

@@ -1,0 +1,86 @@
+
+Bone 0 is the root bone, this bone basically does nothing but dont mess with it
+
+Bone 1 is the pelvis bone 
+
+Bone 2 is the spine
+
+bone 3 is the upper torso
+
+Bone 4 is the neck
+
+bone 5 is the head bone
+
+bone 6 is Something? Jaw or hair bone is my guess
+
+Bone 7 is the left shoulder
+
+Bone 8 is the left upperarm
+
+Bone 9 is the left forearm
+
+Bone 10 is the left wrist
+
+Bone 11 is the left hand
+
+Bone 12 is the left thumb
+
+Bone 13 is the bottom of the index left finger
+
+Bone 14 is the top of the index left finger
+
+Bone 15 is the bottom of other 3 left fingers
+
+Bone 16 is the top of other 3 left fingers
+
+Bone 17 is the right shoulder
+
+Bone 18 is the right upperarm
+
+Bone 19 is the right forearm
+
+Bone 20 is the right wrist
+
+Bone 21 is the right hand
+
+Bone 22 is the right thumb
+
+Bone 23 is the bottom of the right index finger
+
+Bone 24 is the top of the right index finger
+
+Bone 25 is the bottom of other right 3 fingers
+
+Bone 26 is the top of the other right 3 fingers
+
+Bone 27 is the right thigh bone
+
+Bone 28 is the right calf bone
+
+Bone 29 is the right foot bone
+
+Bone 30 is the right toe bone
+
+Bone 31 is the left thigh bone
+
+Bone 32 is the left calf bone
+
+Bone 33 is the left foot bone
+
+Bone 34 is the left toe bone
+
+Bone 35 is 
+
+Bone 36 is 
+
+Bone 37 is 
+
+Bone 38 is 
+
+Bone 39 is 
+
+Bone 40 is 
+
+Bone 41 is 
+
+Bone 42 is 

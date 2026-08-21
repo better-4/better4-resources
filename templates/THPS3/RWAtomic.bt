@@ -1,0 +1,13 @@
+//------------------------------------------------
+// Atomic data.
+//------------------------------------------------
+
+#define CL_ATOMIC_VALUE                0xAAAAFF
+
+typedef struct
+{
+    uint frame_index <bgcolor=CL_ATOMIC_VALUE>;
+    uint geometry_index <bgcolor=CL_ATOMIC_VALUE>;
+    uint unk_a <bgcolor=CL_ATOMIC_VALUE>;
+    uint unk_b <bgcolor=CL_ATOMIC_VALUE>;
+} RWAtomic;

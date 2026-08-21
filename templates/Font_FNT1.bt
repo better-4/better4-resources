@@ -1,0 +1,8 @@
+//------------------------------------------------
+// FNT1 (THPS3) .fnt file.
+//------------------------------------------------
+
+#include "Font.bt"
+
+FntFileVersion = FONT_FNT1;
+FntFile font_file;

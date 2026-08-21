@@ -1,0 +1,8 @@
+//------------------------------------------------
+// FNT2 (THPS4, THUG, THUG2) .fnt file.
+//------------------------------------------------
+
+#include "Font.bt"
+
+FntFileVersion = FONT_FNT2;
+FntFile font_file;

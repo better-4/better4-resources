@@ -1,0 +1,136 @@
+//------------------------------------------------
+// CIFStruct file. Cutscene ?? File? Not sure.
+// Used in THUG2.
+//------------------------------------------------
+
+#include "../Common.bt"
+
+enum <ubyte> CIFNodeType
+{
+    NT_STRUCT_DATA = 0x00,
+    NT_FLOAT = 0x02,
+    NT_STRING = 0x03,
+    NT_STRUCT = 0x0A,
+    NT_ARRAY = 0x0C,
+    NT_CHECKSUM = 0x0D,
+    NT_CIFSTRUCT = 0x40
+};
+
+string CIFNodeTypeString(CIFNodeType type)
+{
+    local string result = EnumToString(type);
+    return (result == "") ? Str("NF_UNK(%d)", type) : result;
+}
+
+struct CIFNode;
+
+typedef struct
+{
+    CIFNodeType type <bgcolor=CL_SINGLEVALUE>;
+    
+    switch (type)
+    {
+        case NT_CIFSTRUCT:
+            ubyte item_count <bgcolor=CL_SINGLEVALUE>;
+            ubyte unk_a <bgcolor=CL_SINGLEVALUE>;
+            QBKey checksum <bgcolor=CL_CHECKSUM>;
+            ubyte object_count <bgcolor=CL_SINGLEVALUE>;
+            
+            if (item_count)
+                CIFNode children[item_count] <optimize=false>;
+            break;
+            
+        case NT_FLOAT:
+            QBKey id <bgcolor=CL_CHECKSUM>;
+            float value <bgcolor=CL_SINGLEVALUE>;
+            break;
+            
+        case NT_CHECKSUM:
+            QBKey id <bgcolor=CL_CHECKSUM>;
+            QBKey value <bgcolor=CL_CHECKSUM>;
+            break;
+            
+        case NT_STRING:
+            QBKey id <bgcolor=CL_CHECKSUM>;
+            string value <bgcolor=CL_NAME>;
+            break;
+            
+        case NT_STRUCT_DATA:
+            local ubyte testByte;
+            
+            while (true && !FEof())
+            {
+                testByte = ReadByte();
+                
+                if (testByte == 0x00)
+                    return;
+                else
+                    CIFNode children;
+            };
+            
+            break;
+            
+        case NT_ARRAY:
+            QBKey id <bgcolor=CL_CHECKSUM>;
+            CIFNodeType array_type <bgcolor=CL_SINGLEVALUE>;
+            ubyte item_count <bgcolor=CL_SINGLEVALUE>;
+            
+            if (item_count)
+                CIFNode children[item_count] <optimize=false>;
+            break;
+            
+        default:
+            Printf("Unknown CIFNode type %s\n", CIFNodeTypeString(type));
+            return;
+            break;
+    }
+    
+} CIFNode <read=ReadCIFNode>;
+
+string ReadCIFNode(CIFNode &node)
+{
+    local string dataString = "";
+    
+    switch (node.type)
+    {
+        case NT_CIFSTRUCT:
+            dataString = Str("%d items", node.item_count);
+            break;
+            
+        case NT_STRUCT:
+            dataString = ReadQBKey(node.id);
+            break;
+            
+        case NT_ARRAY:
+            dataString = Str("[%s] %d %ss", ReadQBKey(node.id), node.item_count, CIFNodeTypeString(node.array_type));
+            break;
+            
+        case NT_FLOAT:
+            dataString = Str("[%s] %f", ReadQBKey(node.id), node.value);
+            break;
+            
+        case NT_CHECKSUM:
+            dataString = Str("[%s] %s", ReadQBKey(node.id), ReadQBKey(node.value));
+            break;
+            
+        case NT_STRING:
+            dataString = Str("[%s] %s", ReadQBKey(node.id), node.value);
+            break;
+    }
+    
+    if (dataString == "")
+        return CIFNodeTypeString(node.type);
+        
+    return Str("%s: %s", CIFNodeTypeString(node.type), dataString);
+}
+
+// --------------------------------------------------
+
+typedef struct
+{
+    QBKey magic <bgcolor=CL_CHECKSUM>;
+    CIFNode node;
+} CIFFile;
+
+LittleEndian();
+CIFFile file;

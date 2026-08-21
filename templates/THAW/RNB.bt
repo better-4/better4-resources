@@ -1,0 +1,158 @@
+//------------------------------------------------
+// .rnb - Rail Node Binary
+// Used in THAW for vehicles, mostly.
+//------------------------------------------------
+
+#include "../Common.bt"
+#include "Constants.bt"
+
+#define CL_RNB_HEADERVALUE              0xCCDDFF
+#define CL_RNB_BBMIN                    0xCCFFCC
+#define CL_RNB_BBMAX                    0xBBEEBB
+#define CL_RNB_POS                      0xAADDAA
+#define CL_RNB_QUAT                     0x99CC99
+#define CL_RNB_FLAGS                    0xAAFFFF
+#define CL_RNB_NAME                     0xFFCCCC
+#define CL_RNB_TERRAIN                  0xEEBBBB
+#define CL_RNB_UNK                      0x99BB99
+#define CL_RNB_LINK_NEXT                0xFFCCFF
+#define CL_RNB_LINK_PREV                0xEEBBEE
+#define CL_RNB_INTERNAL                 0x999999
+
+//------------------------------------------------
+
+local uint ReferenceArrayStart = 0;
+local uint CurrentNodeIndex = 0;
+
+typedef struct
+{
+    uint flags;
+} ERailNodeFlag <read=ReadRailNodeFlag>;
+
+string ReadRailNodeFlag(ERailNodeFlag &rnbflags)
+{
+    local string out;
+    local string separator = "";
+    local uint numFlags = 0;
+    
+    if (rnbflags.flags & RN_LIPOVERRIDE)
+    {
+        SPrintf(out, "%s%sRN_LIPOVERRIDE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_DEFAULTLINE)
+    {
+        SPrintf(out, "%s%sRN_DEFAULTLINE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_ACTIVE)
+    {
+        SPrintf(out, "%s%sRN_ACTIVE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_NO_CLIMBING)
+    {
+        SPrintf(out, "%s%sRN_NO_CLIMBING", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_ONLY_CLIMBING)
+    {
+        SPrintf(out, "%s%sRN_ONLY_CLIMBING", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_LADDER)
+    {
+        SPrintf(out, "%s%sRN_LADDER", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_NO_HANG_WITH_RIGHT_ALONG_RAIL)
+    {
+        SPrintf(out, "%s%sRN_NO_HANG_WITH_RIGHT_ALONG_RAIL", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_NO_HANG_WITH_LEFT_ALONG_RAIL)
+    {
+        SPrintf(out, "%s%sRN_NO_HANG_WITH_LEFT_ALONG_RAIL", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_STALLOVERRIDE_MAYBE)
+    {
+        SPrintf(out, "%s%sRN_STALLOVERRIDE_MAYBE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_NEXT_LINK)
+    {
+        SPrintf(out, "%s%sRN_NEXT_LINK", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (rnbflags.flags & RN_PREV_LINK)
+    {
+        SPrintf(out, "%s%sRN_PREV_LINK", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    return out;
+}
+
+typedef struct
+{
+    Vec4 m_BBMin <bgcolor=CL_RNB_BBMIN, comment="Bounding box for this node and the subsequent one">;
+    Vec4 m_BBMax <bgcolor=CL_RNB_BBMAX, comment="(or just a zero-sized box, if not applicable)">;
+    Vec4 m_pos <bgcolor=CL_RNB_POS, comment="Position of the node">;
+    Vec4 m_orientation <bgcolor=CL_RNB_QUAT, comment="Orientation of the rail node, only set for climbing nodes">;
+    ERailNodeFlag flags <bgcolor=CL_RNB_FLAGS>;
+    QBKey name <bgcolor=CL_RNB_NAME>;
+    QBKey terrainType <bgcolor=CL_RNB_TERRAIN, comment="Climbing nodes ignore this.">;
+    int unk <bgcolor=CL_RNB_UNK, comment="Seems to be 0 in most cases.">;
+    int next_node <bgcolor=CL_RNB_LINK_NEXT, comment="Node index of right (next) link">;
+    int prev_node <bgcolor=CL_RNB_LINK_PREV, comment="Node index of left (previous) link">;
+    
+    local uint old_pos = FTell();
+    FSeek(ReferenceArrayStart + (8 * CurrentNodeIndex));
+    
+    uint m_pNextLink <bgcolor=CL_RNB_INTERNAL, comment="Internal, Pointer to next node in rail (or NULL if none)">;
+    uint m_pPrevLink <bgcolor=CL_RNB_INTERNAL, comment="Internal, Pointer to previous node in rail (or NULL if none)">;
+    
+    FSeek(old_pos);
+} RNBNode <read=Str("%s, %s, %s -> [%d, %d]", ReadQBKey(name), ReadQBKey(terrainType), ReadVec4(m_pos), next_node, prev_node)>;
+
+typedef struct
+{
+    int node_count <bgcolor=CL_RNB_HEADERVALUE>;
+    int unk_toggle <bgcolor=CL_RNB_HEADERVALUE, comment="Affects something if 1, unknown.">;
+    
+    // 8-byte memory references start here.
+    ReferenceArrayStart = FTell() + (88 * node_count);
+    
+    local uint i;
+    
+    for (i=0; i<node_count; i++)
+    {
+        CurrentNodeIndex = i;
+        RNBNode node;
+    }
+} RNBFile;
+
+LittleEndian();
+RNBFile file;

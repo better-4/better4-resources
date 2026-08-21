@@ -1,0 +1,65 @@
+//------------------------------------------------
+// .img file. (THPG, PS3)
+//------------------------------------------------
+
+#include "../Common.bt"
+
+enum <ubyte> ImgType
+{
+    IMG_STANDARD = 0,
+    IMG_NORMALMAP = 1,
+    IMG_SPECULARMAP = 3,
+    IMG_CUBEMAP = 4,
+    IMG_VOLUMETRIC = 5, 
+};
+
+typedef struct
+{
+    ubyte version <bgcolor=CL_SINGLEVALUE, comment="Texture version?">;
+    ubyte header_size <bgcolor=CL_SINGLEVALUE, comment="Size of texture header">;
+
+    // THAW texture
+    if (version < 10)
+        thaw = 1;
+
+    ubyte flags <bgcolor=CL_SINGLEVALUE, comment="Image flags">;
+    ImgType image_type <bgcolor=CL_SINGLEVALUE, comment="Image type">;
+    
+    QBKey Checksum <bgcolor=CL_CHECKSUM, comment="Image identifier">;
+     
+    ushort BaseWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+    ushort BaseHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the D3D texture (Will be power of 2)">;
+    
+    ushort oneA <bgcolor=CL_SINGLEVALUE>;
+    
+    ushort ActualWidth <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+    ushort ActualHeight <bgcolor=CL_SINGLEVALUE, comment="The size of the texture itself (may not be power of 2)">;
+    
+    ushort oneB <bgcolor=CL_SINGLEVALUE>;
+    
+    ubyte Levels <bgcolor=CL_SINGLEVALUE, comment="Mipmap count">;
+    ubyte TexelDepth <bgcolor=CL_SINGLEVALUE, comment="Bits Per Pixel">;
+    ubyte DXT <bgcolor=CL_SINGLEVALUE, comment="Compression level">;
+    ubyte FlagsMaybeUnk <bgcolor=CL_SINGLEVALUE>;
+    
+    uint zero_c <bgcolor=CL_PADDING>;
+    
+    uint offsetMaybe <bgcolor=CL_SINGLEVALUE>;
+    uint size <bgcolor=CL_SINGLEVALUE, comment="Size of texture data">;
+    
+    uint unkOneA <bgcolor=CL_SINGLEVALUE>;
+    RelativeOffset ps3DataStart(0) <bgcolor=CL_POINTER>;
+    uint term <bgcolor=CL_PADDING>;
+    
+    ubyte imgTypeMaybe <bgcolor=CL_SINGLEVALUE>;
+    ubyte unkByte[3] <bgcolor=CL_SINGLEVALUE>;
+    
+    uint unkImgValue <bgcolor=CL_SINGLEVALUE>;
+    
+    ushort WidthB <bgcolor=CL_SINGLEVALUE>;
+    ushort HeightB <bgcolor=CL_SINGLEVALUE>;
+    ushort OneB <bgcolor=CL_SINGLEVALUE>;
+} THPGImg;
+
+BigEndian();
+THPGImg img;

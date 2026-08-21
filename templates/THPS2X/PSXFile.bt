@@ -1,0 +1,783 @@
+//------------------------------------------------
+// Spider-Man / Neversoft .PSX file
+// Lays out the whole file!
+//------------------------------------------------
+
+#include "PSXCommon.bt"
+#include "PSXAnim.bt"
+
+#define VERSION_THPS1BETA           2
+#define VERSION_THPS1               3
+#define VERSION_THPS2               4
+#define VERSION_PC                  6
+
+#define FACEFLAGS_TEXTURED          0x0001
+#define FACEFLAGS_TEXTURE_LOOKUP    0x0002
+#define FACEFLAGS_TEXTURED_ANY      FACEFLAGS_TEXTURED      // FACEFLAGS_TEXTURE_LOOKUP was also in this but doesn't seem to be right...
+#define FACEFLAGS_0008              0x0008                  // +8 extra bytes (ushort[4], always set with 0x4, seems to be used for actor models)
+#define FACEFLAGS_TRIANGLE          0x0010
+#define FACEFLAGS_TILED             0x0020                  // +4 extra bytes (extra bytes are always zero... maybe a working field?)
+#define FACEFLAGS_SEMITRANS         0x0040                  // Semi-transparent
+#define FACEFLAGS_INVISIBLE         0x0080
+#define FACEFLAGS_GOURAUD           0x0800
+#define FACEFLAGS_SUBDIVIDE         0x1000
+
+#define COLFLAGS_NOCOLLIDE          0x0040
+
+enum <ubyte> PSXTerrainType
+{
+    T_CONCRETE                  = 0,
+    T_TILE                      = 1,
+    T_WOOD                      = 2,
+    T_DIRT                      = 3,
+    T_ASPHALT                   = 4,
+    T_GRASS                     = 5,
+    T_WATER                     = 6,
+    T_CHAINLINK                 = 7,
+    T_BRICK						= 8,
+    T_METALPOLE					= 9,
+    T_TINROOF					= 10,
+    T_POOL						= 11,
+    T_METAL						= 12,
+    T_ROCK						= 13,
+    T_GRAVEL					= 14,
+    T_SIDEWALK					= 15,
+};
+
+local uint CurrentPSXObjectCount;
+
+local uint PSXFileVersion = 0;
+
+LittleEndian();
+
+typedef struct
+{
+    int posX;
+    int posY;
+    int posZ;
+} PSXPosition <read=ReadPSXPosition>;
+
+#define SCALEDIVISORTRANSLATION     1.0
+#define SCALEDIVISOR                16.0
+
+string ReadPSXPosition(PSXPosition &pos)
+{
+    local string s;
+
+    return SPrintf(s, "(%f, %f, %f)", pos.posX / (4096.0 * SCALEDIVISORTRANSLATION), pos.posY / (4096.0 * SCALEDIVISORTRANSLATION), pos.posZ / (4096.0 * SCALEDIVISORTRANSLATION));
+}
+
+#define CL_PSXOBJ_FLAGS             0xAAFFAA
+#define CL_PSXOBJ_POS               0x99DD99
+#define CL_PSXOBJ_VAL               0x88CC88
+
+typedef struct
+{
+    uint objectFlags <bgcolor=CL_PSXOBJ_FLAGS>;
+    PSXPosition position <bgcolor=CL_PSXOBJ_POS>;
+    uint unk1 <bgcolor=CL_PSXOBJ_VAL>;
+    ushort unk2 <bgcolor=CL_PSXOBJ_VAL>;
+    
+    // Index of mesh in the meshes list. If multiple objects have
+    // the same mesh, then multiple meshes are created, which
+    // theoretically can be used for having the same props in
+    // different positions.
+    ushort meshIndex <bgcolor=CL_PSXOBJ_POS>;
+    
+    // When non-zero, observed as multiples of 2, tx and/or ty can be non-zero.
+    short tX <bgcolor=CL_PSXOBJ_VAL>;
+    short tY <bgcolor=CL_PSXOBJ_VAL>;
+    
+    uint unk3 <bgcolor=CL_PSXOBJ_VAL>;
+    
+    // Generally every object uses the same palette top, not use what this
+    // palette is used for though. This can also be null.
+    uint paletteTop <bgcolor=CL_PSXOBJ_VAL, comment="No effect (PC)">;
+} PSXObject <read=Str("Mesh %d, Pos: %s", meshIndex, ReadPSXPosition(position))>;
+
+//--------------------------------------
+
+typedef struct
+{
+    uint unkA;
+    uint unkB;
+    uint unkC;
+    uint unkD;
+
+    ushort numA;
+    ushort numB;
+} THPS2XChunk;
+
+//--------------------------------------
+
+#define CL_CHUNKMAGIC            0x66FFFF
+#define CL_CHUNKVALUE            0x55EEEE
+#define CL_CHUNKDATA             0x22BBBB
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} RGBAPaletteColor <read=Str("R: %03d, G: %03d, B: %03d, A: %03d", r, g, b, a)>;
+
+typedef struct
+{
+    char magic[4] <bgcolor=CL_CHUNKMAGIC>;
+    uint chunk_length <bgcolor=CL_CHUNKVALUE>;
+    
+    local uint start_pos = FTell();
+    
+    // HIER chunk (Object parents)
+    if (magic[0] == 'H' && magic[1] == 'I' && magic[2] == 'E' && magic[3] == 'R')
+        ushort parents[chunk_length / 2] <bgcolor=CL_CHUNKDATA>;
+        
+    else if (magic[0] == 'R' && magic[1] == 'G' && magic[2] == 'B' && magic[3] == 's')
+        RGBAPaletteColor colors[chunk_length / 4] <bgcolor=CL_CHUNKDATA>;
+    
+    // Detail map info? (THPS2x)
+    else if (magic[0] == 0x0A && magic[1] == 0 && magic[2] == 0 && magic[3] == 0)
+        THPS2XChunk th2x_data <bgcolor=CL_CHUNKDATA>;
+        
+    // pAnimFile chunk (anim data?)
+    else if (magic[0] == 0x2C)
+        AnimFile anim_data (magic[0]);
+    
+    // Unknown
+    else
+        ubyte bytes[chunk_length] <bgcolor=CL_CHUNKDATA>;
+        
+    FSeek(start_pos + chunk_length);
+} PSXChunk <read=Str("%s", magic)>;
+
+//--------------------------------------
+
+#define CL_PLANEX       0x88FF88
+#define CL_PLANEY       0x77EE77
+#define CL_PLANEZ       0x66DD66
+#define CL_PLANEUNK     0x66AA66
+
+typedef struct
+{
+    short x <bgcolor=CL_PLANEX>;
+    short y <bgcolor=CL_PLANEY>;
+    short z <bgcolor=CL_PLANEZ>;
+    short unk <bgcolor=CL_PLANEUNK>;
+} PSXNormal <read=Str("(%f, %f, %f)", x/4096.0, y/4096.0, z/4096.0)>;
+
+typedef struct
+{
+    ushort flags;
+} PSXFaceFlags <read=ReadPSXFaceFlags>;
+
+string ReadPSXFaceFlags(PSXFaceFlags &faceflags)
+{
+    local string out;
+    local string separator = "";
+    local uint numFlags = 0;
+    
+    local ubyte transMode = (faceflags.flags & 0x0180) >> 7;
+    
+    SPrintf(out, "TM: %d, ", transMode);
+    
+    if (faceflags.flags & FACEFLAGS_TEXTURED)
+    {
+        SPrintf(out, "%s%sFACEFLAGS_TEXTURED", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (faceflags.flags & FACEFLAGS_TEXTURE_LOOKUP)
+    {
+        SPrintf(out, "%s%sFACEFLAGS_TEXTURE_LOOKUP", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (faceflags.flags & FACEFLAGS_0008)
+    {
+        SPrintf(out, "%s%sFACEFLAGS_0008", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (faceflags.flags & FACEFLAGS_TRIANGLE)
+    {
+        SPrintf(out, "%s%sFACEFLAGS_TRIANGLE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (faceflags.flags & FACEFLAGS_TILED)
+    {
+        SPrintf(out, "%s%sFACEFLAGS_TILED", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (faceflags.flags & FACEFLAGS_SEMITRANS)
+    {
+        SPrintf(out, "%s%sFACEFLAGS_SEMITRANS", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (faceflags.flags & FACEFLAGS_INVISIBLE)
+    {
+        SPrintf(out, "%s%sFACEFLAGS_INVISIBLE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (faceflags.flags & FACEFLAGS_GOURAUD)
+    {
+        SPrintf(out, "%s%sFACEFLAGS_GOURAUD", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    if (faceflags.flags & FACEFLAGS_SUBDIVIDE)
+    {
+        SPrintf(out, "%s%sFACEFLAGS_SUBDIVIDE", out, separator);
+        numFlags ++;
+        separator = numFlags ? " | " : "";
+    }
+    
+    return out;
+}
+
+typedef struct
+{
+    ushort flags;
+} PSXFaceSurfaceFlags <read=ReadPSXFaceSurfaceFlags>;
+
+string ReadPSXFaceSurfaceFlags(PSXFaceSurfaceFlags &sflags)
+{
+    local string ret = Str("0x%04x", sflags.flags);
+
+    PSXTerrainType ttype = (sflags.flags >> 9) & 0xF;
+
+    local string tstr = EnumToString(ttype);
+
+    if (tstr == "")
+        tstr = Str("T_%d", ttype);
+
+    return Str("%s - %s", ret, tstr);
+}
+
+typedef struct
+{
+    local int finalTextureIndex = -1;
+    local uint face_start = FTell();
+
+    PSXFaceFlags faceFlags <bgcolor=CL_SINGLEVALUE>;
+    ushort faceLength <bgcolor=CL_SINGLEVALUE>;
+
+    if (PSXFileVersion <= VERSION_THPS1)
+        ushort indices[4] <bgcolor=CL_PARSED>;
+    else
+        ubyte indices[4] <bgcolor=CL_PARSED>;
+
+    local ubyte has_vc = false;
+    local ubyte is_quad = false;
+    
+    if (!(faceFlags.flags & FACEFLAGS_TRIANGLE))
+        is_quad = true;
+
+    if (faceFlags.flags & FACEFLAGS_GOURAUD)
+        has_vc = true;
+
+    ubyte r <bgcolor=CL_PARSED>;
+    ubyte g <bgcolor=CL_PARSED>;
+    ubyte b <bgcolor=CL_PARSED>;
+    ubyte mode <bgcolor=CL_PARSED>;
+    
+    ushort normalIndex <bgcolor=CL_PARSED>;
+    PSXFaceSurfaceFlags surfFlags <bgcolor=CL_PARSED>;       // Holds collision info, as well as terrain type
+
+    if (faceFlags.flags & FACEFLAGS_TEXTURED_ANY)
+    {
+        uint textureIndex;
+        finalTextureIndex = textureIndex;
+        
+        local int i;
+
+        if (version != VERSION_PC)
+        {
+            for (i=0; i<4; i++)
+            {
+                ubyte tex_x;
+                ubyte tex_y;
+            }
+        }
+        else
+        {
+            for (i=0; i<4; i++)
+                short x_coords;
+            for (i=0; i<4; i++)
+                short y_coords;
+        }
+    }
+    
+    if (faceFlags.flags & FACEFLAGS_0008)
+    {
+        // These are definitely ushorts. For example:
+        // f8_0 was observed as a non-zero non-minus-one value, while all other values were -1.
+        // Often times all of these values are zero, but otherwise they can be under a byte's max value,
+        // or over a short's max value.
+        
+        ushort f8_0;
+        ushort f8_1;
+        ushort f8_2;
+        ushort f8_3;
+    }
+    
+    if (faceFlags.flags & FACEFLAGS_TILED)
+    {
+        // Only ever observed as zero, this may be a working field added to aid in whatever this flag actually does.
+        // In Apocalyse pest_obj.psx where texCoord wasn't set, this field was skipped in faceLength.
+        uint f20;
+    }
+
+    FSeek(face_start + faceLength);
+} PSXFace <read=ReadPSXFace>;
+
+string ReadPSXFace(PSXFace &face)
+{
+    local string s;
+
+    if (face.faceFlags.flags & FACEFLAGS_TRIANGLE)
+        return SPrintf(s, "Tex %d: [%d, %d, %d], %s", face.finalTextureIndex, face.indices[0], face.indices[1], face.indices[2], ReadPSXFaceSurfaceFlags(face.surfFlags));
+    else
+        return SPrintf(s, "Tex %d: [%d, %d, %d, %d], %s", face.finalTextureIndex, face.indices[0], face.indices[1], face.indices[2], face.indices[3], ReadPSXFaceSurfaceFlags(face.surfFlags));
+}
+
+#define CL_VERTX      0xFFFF88
+#define CL_VERTY      0xEEEE77
+#define CL_VERTZ      0xDDDD66
+#define CL_VERTW      0xCCCC55
+
+typedef struct
+{
+    // Vertex coding:
+    // It's possible that type is actually flags, since all encountered types are powers of 2.
+    // However most types wouldn't make sense to use together.
+    // type =  0: Normal vertex
+    // type =  1: Attachable vertex, file-wide counter as the index
+    // type =  2: Attached vertex,   Y is the index of the attachable (not vertex index)
+    //                               X and Z are zero
+    // type =  4: Unknown            X, Y, and Z are not indexes, and may be negative
+    // type = 16: Sprite vertex,     X is a byte offset to the sprite center vertex (always 0,8,16,24)
+    //                               Y is a byte offset to a vertex (usually 16,16,0,0, rarely 24,24,8,8)
+    //                               Z value is the width of the sprite with some awkward behavior, not fully understood
+                
+    short posX <bgcolor=CL_VERTX>;
+    short posY <bgcolor=CL_VERTY>;
+    short posZ <bgcolor=CL_VERTZ>;
+    
+    // If we counter type 1, then the model is a joint.
+    
+    short type <bgcolor=CL_VERTW>;
+} PSXVertex <read=ReadPSXVertex>;
+
+string ReadPSXVertex(PSXVertex &vert)
+{
+    local string s;
+
+    return SPrintf(s, "[%d] - (%f, %f, %f)", vert.type, vert.posX / SCALEDIVISOR, vert.posY / SCALEDIVISOR, vert.posZ / SCALEDIVISOR);
+}
+
+typedef struct
+{
+    local ubyte modelIsJoint = 0;
+    
+    if (PSXFileVersion < VERSION_THPS2)
+    {
+        uint meshFlags <bgcolor=CL_SINGLEVALUE>;
+        uint vertexCount <bgcolor=CL_SINGLEVALUE>;
+        uint normalCount <bgcolor=CL_SINGLEVALUE>;
+        uint faceCount <bgcolor=CL_SINGLEVALUE>;
+    }
+    else
+    {
+        ushort meshFlags <bgcolor=CL_SINGLEVALUE>;
+        ushort vertexCount <bgcolor=CL_SINGLEVALUE>;
+        ushort normalCount <bgcolor=CL_SINGLEVALUE>;
+        ushort faceCount <bgcolor=CL_SINGLEVALUE>;
+    }
+    
+    // Real bounds information
+    
+    if (PSXFileVersion >= VERSION_THPS1)
+        uint radius;
+        
+    if (PSXFileVersion == VERSION_THPS1BETA)
+    {
+        int betaUnkA;
+        int betaUnkB;
+    }
+        
+    ushort xMin;
+    ushort xMax;
+    ushort yMin;
+    ushort yMax;
+    ushort zMin;
+    ushort zMax;
+    
+    local ushort _lodDepth = 0xFFFF;
+    local short _lodNextMeshIndex = 0xFFFF;
+    
+    if (PSXFileVersion >= VERSION_THPS2)
+    {
+        ushort lodDepth;
+        short lodNextMeshIndex;
+        
+        _lodDepth = lodDepth;
+        _lodNextMeshIndex = lodNextMeshIndex;
+    } 
+
+    // We need to read through vertices twice, first to load all
+    // attachables, and the second time to load vertices for the
+    // current mesh. Tests were done to compare load times of storing
+    // all vertices at once, and loading vertices per-mesh is faster
+    // by a decent amount.
+
+    local uint ptr_vertex = FTell();
+    if (vertexCount)
+    {
+        local uint v;
+        
+        for (v=0; v<vertexCount; v++)
+        {
+            PSXVertex vertices;
+            
+            if (vertices.type == 1)
+                modelIsJoint = 1;
+        }
+    }
+
+    local uint ptr_planes = FTell();
+    if (normalCount)
+        PSXNormal normals[normalCount];
+
+    // I've seen version 0x03 in Apocalypse, and there didn't seem to be
+    // fields like this before the faces. Leaving in-case this exists somewhere else...
+    //      ushort faceFlags;
+    //      ushort faceLength;
+
+    local uint ptr_faces = FTell();
+    local uint i;
+
+    for (i=0; i<faceCount; i++)
+        PSXFace faces <optimize=false>;
+} PSXMesh <read=Str("[%s] %d vertices - LOD Depth: %d, Next LOD: %d", modelIsJoint ? "JOINT" : "OBJ", vertexCount, _lodDepth, _lodNextMeshIndex)>;
+
+typedef struct (uint mdl_count)
+{
+    local int i;
+    for (i=0; i<mdl_count; i++)
+        RelativeOffset off_model(0) <bgcolor=CL_POINTER>;
+
+    for (i=0; i<mdl_count; i++)
+    {
+        FSeek(AbsOffset(off_model[i]));
+        PSXMesh meshes;
+    }
+    
+    // Now that we have the joint vertex positions, we can read through
+    // each mesh and build lists of triangles. PSX format features
+    // swappable LOD meshes for each object, by default we only use
+    // the first-listed mesh for highest quality.
+} PSXMeshBlock;
+
+//--------------------------------------
+
+#define CL_PALETTEID         0xFF88FF
+#define CL_PALETTECOL        0xDD66DD
+
+typedef struct
+{
+    QBKey clutHash <bgcolor=CL_PALETTEID>;
+    ushort colors[16] <bgcolor=CL_PALETTECOL>;
+} PSXPalette_4Bit <read=ReadQBKey(clutHash)>;
+
+typedef struct
+{
+    QBKey clutHash <bgcolor=CL_PALETTEID>;
+    ushort colors[256] <bgcolor=CL_PALETTECOL>;
+} PSXPalette_8Bit <read=ReadQBKey(clutHash)>;
+
+#define CL_TEXPIXELS            0xFFAAFF
+
+typedef struct (uint version)
+{
+    uint maskMode <bgcolor=CL_SINGLEVALUE>;
+
+    uint paletteSize <bgcolor=CL_SINGLEVALUE>;
+    QBKey clutHash <bgcolor=CL_CHECKSUM>;
+
+    uint textureIndex <bgcolor=CL_SINGLEVALUE>;
+    ushort width <bgcolor=CL_SINGLEVALUE>;
+    ushort height <bgcolor=CL_SINGLEVALUE>;
+    
+    local int bpp;
+    
+    switch (paletteSize)
+    {
+        case 16:
+            bpp = 4;
+            break;
+            
+        case 256:
+            bpp = 8;
+            break;
+            
+        case 0x10000:
+            bpp = 16;
+            uint pixelFormat <bgcolor=CL_SINGLEVALUE>;
+            uint size <bgcolor=CL_SINGLEVALUE>;
+            ubyte data[size] <bgcolor=CL_PARSED>;
+            return;
+            break;
+    }
+
+    local ubyte odd_tex_height = (height % 2 != 0);
+
+    local uint pad_width;
+    local uint pad_height;
+    local uint extra_padding;
+
+    if (paletteSize == 16)
+    {
+        pad_width = (width+0x3)&~0x3;
+        pad_width >>= 1;
+
+        if (odd_tex_height)
+            extra_padding = (pad_width % 4 != 0) ? 2 : 0;
+        else
+            extra_padding = 0;
+    }
+
+    else if (paletteSize == 256)
+    {
+        pad_width = (width+0x1)&~0x1;
+
+        if (odd_tex_height)
+            extra_padding = (pad_width % 4 != 0) ? 2 : 0;
+        else
+            extra_padding = 0;
+    }
+
+    ubyte bytes[(pad_width * height) + extra_padding] <bgcolor=CL_TEXPIXELS>;
+
+} PSXTexture <read=ReadPSXTexture>;
+
+string ReadPSXTexture(PSXTexture &tex)
+{
+    local string s;
+
+    return SPrintf(s, "[%d] %s (%dx%d), %d byte palette", tex.textureIndex, ReadQBKey(tex.clutHash), tex.width, tex.height, tex.paletteSize);
+}
+
+//--------------------------------------
+
+#define UNKFLAG_HAS_DETAILMAP                           0x0200
+
+typedef struct
+{
+    char name[32];
+} PSXString <read=Str("%s", name)>;
+
+typedef struct
+{
+    char name[32];
+    uint unk;
+} DetailMapInfo <read=Str("%d: %s", unk, name)>;
+
+typedef struct
+{
+    uint flags <bgcolor=CL_SINGLEVALUE>;
+
+    uint const_a <bgcolor=CL_SINGLEVALUE>;
+    uint const_b <bgcolor=CL_SINGLEVALUE>;
+
+    uint texture_index <bgcolor=CL_SINGLEVALUE>;
+
+    ushort const_c <bgcolor=CL_SINGLEVALUE>;
+    ushort const_d <bgcolor=CL_SINGLEVALUE>;
+
+    if (flags & UNKFLAG_HAS_DETAILMAP)
+    {
+        uint detail_map_index;
+        float detail_map_scale;
+    }
+
+    if (flags & 0x0400)
+    {
+        float unk_a;
+        float unk_b;
+    }
+
+    if (flags & 0x0800)
+    {
+        float unk_a;
+        float unk_b;
+    }
+
+    if (flags & 0x1000)
+    {
+        float unk_a;
+    }
+
+    uint unk_c;
+    uint unk_buffer_size;
+    uint unk_d;
+    uint unk_e;
+
+} TH2XTextureInfo <read=ReadTH2XTextureInfo>;
+
+string ReadTH2XTextureInfo(TH2XTextureInfo &obj)
+{
+    local string ret = Str("Tex %d: (0x%08x), %d, %d bytes, %d, %d", obj.texture_index, obj.flags, obj.unk_c, obj.unk_buffer_size, obj.unk_d, obj.unk_e);
+
+    if (obj.flags & UNKFLAG_HAS_DETAILMAP)
+        return Str("%s, detail map %d, scale %f", ret, obj.detail_map_index, obj.detail_map_scale);
+
+    return ret;
+}
+
+typedef struct
+{
+    uint info_count <bgcolor=CL_SINGLEVALUE>;
+
+    if (!info_count)
+        return;
+    
+    local int i;
+
+    for (i=0; i<info_count; i++)
+        RelativeOffset offsets(0) <bgcolor=CL_POINTER>;
+
+    local uint old_off = FTell();
+
+    for (i=0; i<info_count; i++)
+    {
+        FSeek(AbsOffset(offsets[i]));
+        TH2XTextureInfo infos;
+    }
+
+    FSeek(old_off);
+} TH2XInfoBlock <read=Str("%d %s", info_count, info_count == 1 ? "texture" : "textures")>;
+
+//--------------------------------------
+
+typedef struct
+{
+    uint textureHashCount <bgcolor=CL_SINGLEVALUE>;
+    
+    if (textureHashCount)
+        QBKey tex_names[textureHashCount] <bgcolor=CL_CHECKSUM>;
+        
+    Printf("Texture block at %d\n", FTell());
+        
+    uint clut16Count <bgcolor=CL_SINGLEVALUE>;
+    if (clut16Count > 0)
+        PSXPalette_4Bit palette_4bit[clut16Count];
+
+    uint clut256Count <bgcolor=CL_SINGLEVALUE>;
+    if (clut256Count > 0)
+        PSXPalette_8Bit palette_8bit[clut256Count];
+
+    int textureDataCount <bgcolor=CL_SINGLEVALUE>;
+
+    local int i;
+    
+    for (i=0; i<textureDataCount; i++)
+        RelativeOffset tex_pointer(0) <bgcolor=CL_POINTER>;
+
+    for (i=0; i<textureDataCount; i++)
+    {
+        FSeek(AbsOffset(tex_pointer[i]));
+        PSXTexture texture(version);
+    }
+
+    // THPS2X
+
+    if (!FEof() && PSXFileVersion >= VERSION_PC)
+    {
+        uint num_detail_maps <bgcolor=CL_SINGLEVALUE>;
+
+        if (num_detail_maps)
+            DetailMapInfo detail_map_infos[num_detail_maps] <optimize=false, bgcolor=CL_SINGLEVALUE>;
+
+        uint num_cubemaps <bgcolor=CL_SINGLEVALUE>;
+
+        if (num_cubemaps)
+            PSXString cubemap_names[num_cubemaps] <optimize=false, bgcolor=CL_SINGLEVALUE>;
+
+        uint num_info_blocks <bgcolor=CL_SINGLEVALUE>;
+
+        if (num_info_blocks)
+            TH2XInfoBlock info_block[num_info_blocks] <optimize=false>;
+    }
+} PSXTextureBlock;
+
+//--------------------------------------
+
+typedef struct
+{
+    ushort version <bgcolor=CL_SINGLEVALUE>;
+    PSXFileVersion = version;
+    
+    // TODO: Need a way to override this. Or determine beta automatically.
+    // PSXFileVersion = VERSION_THPS1BETA;
+    
+    ushort magic <bgcolor=CL_SINGLEVALUE, comment="Should be 2">;
+    
+    if (magic != 2 || (version != 3 && version != 4 && version != 6))
+    {
+        Printf("Not a valid PSX file.\n");
+        return;
+    }
+    
+    RelativeOffset metaTop(0) <bgcolor=CL_POINTER, comment="Pointer to tagged chunks, mesh names, textures">;
+    uint obj_count <bgcolor=CL_SINGLEVALUE>;
+    
+    CurrentPSXObjectCount = obj_count;
+    
+    if (obj_count)
+        PSXObject objects[obj_count] <optimize=false>;
+
+    // -----------------
+
+    // Allow zero mesh count in-case this is a texture library.
+    uint meshCount <bgcolor=CL_SINGLEVALUE>;
+    
+    local uint meshesStartPosition = FTell();
+    Printf("Meshes start at %d\n", meshesStartPosition);
+
+    FSeek(AbsOffset(metaTop));
+
+    local int chunk_test = ReadInt();
+    
+    while (!FEof() && chunk_test != 0xFFFFFFFF)
+    {
+        PSXChunk metadata_chunk() <optimize=false>;
+        chunk_test = ReadInt();
+    }
+
+    int chunk_terminator <bgcolor=CL_CHUNKMAGIC>;
+
+    // Hashes of mesh names, not important
+    if (meshCount)
+        QBKey mesh_names[meshCount] <bgcolor=CL_CHECKSUM>;
+    
+    PSXTextureBlock texture_block;
+    
+    FSeek(meshesStartPosition);
+    
+    PSXMeshBlock mesh_block(meshCount);
+} PSXFile;
+
+PSXFile psx;

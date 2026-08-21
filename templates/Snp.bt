@@ -1,0 +1,286 @@
+//------------------------------------------------
+// WoR .snp file
+//------------------------------------------------
+
+#include "Common.bt"
+
+#define MAX_OBJECT_TABLE_SIZE               1024
+
+struct SnpObject;
+struct SnpObjectNameTable;
+
+local uint NumSnpFileObjects;
+local uint objectNameTableOffsets[MAX_OBJECT_TABLE_SIZE];
+local uint objectNameTableOffsetsSize = 0;
+local int curTopLevelObjectIndex = -1;
+
+// ---------------------------------
+
+typedef struct
+{
+    local string objectTableName = "";
+
+    if (curTopLevelObjectIndex >= 0 && curTopLevelObjectIndex < objectNameTableOffsetsSize)
+        objectTableName = ReadString(objectNameTableOffsets[curTopLevelObjectIndex]);
+
+    local uint datPos = FTell();
+    local uint i;
+
+    NOTE_QBKEY mood <bgcolor=CL_CHECKSUM>;
+    int numChildren <bgcolor=CL_SINGLEVALUE>;
+    int unkA <bgcolor=CL_SINGLEVALUE>;
+
+    local uint childrenPos = FTell() + (4 * numChildren);
+    childrenPos = SnappedNumber(childrenPos, 16);
+
+    for (i=0; i<numChildren; i++)
+    {
+        RelativeOffset offsets(childrenPos) <bgcolor=CL_POINTER>;
+    }
+
+    for (i=0; i<numChildren; i++)
+    {
+        FSeek(AbsOffset(offsets[i]));
+        SnpObject child;
+    }
+} SnpObject_CSnapshotData <read=ReadCSnapshotData>;
+
+string ReadCSnapshotData(SnpObject_CSnapshotData &data)
+{
+    local string eStr = (data.objectTableName == "") ? ReadNoteQBKey(data.mood) : data.objectTableName;
+
+    if (eStr == "")
+        eStr = Str("MOOD_0x%08x", data.mood);
+
+    return Str("%s", eStr);
+}
+
+// ---------------------------------
+
+typedef struct
+{
+    FSkip(12);
+
+    Vec4 pos <bgcolor=CL_FLOATS>;
+    Vec4 orientation <bgcolor=CL_FLOATS>;
+
+    uint flags_maybe <bgcolor=CL_FLOATS, format=hex>;
+
+    FSkip(12);
+    
+    Vec3 lightcolor <bgcolor=CL_FLOATS>;           // r, g, b
+
+    float unk_value_a <bgcolor=CL_FLOATS>;
+
+    // Generally, these two values seem to be the same.
+    float intensity <bgcolor=CL_FLOATS>;
+    float specularintensity <bgcolor=CL_FLOATS>;
+
+    float unk_value_b <bgcolor=CL_FLOATS>;
+
+    float attenstart <bgcolor=CL_FLOATS>;
+    float attenend <bgcolor=CL_FLOATS>;
+    float hotspot <bgcolor=CL_FLOATS>;
+    float field <bgcolor=CL_FLOATS>;
+} SnpObject_SLightShowParamsLight;
+
+// ---------------------------------
+
+enum LightshowParamsType
+{
+    DIRECT = 9,
+    HOTSPOT = 10,
+};
+
+typedef struct
+{
+    NOTE_QBKEY lightchecksum <bgcolor=CL_CHECKSUM>;
+
+    FSkip(12);
+
+    LightshowParamsType type <bgcolor=CL_SINGLEVALUE>;
+
+    FSkip(8);
+
+    SnpObject light;
+} SnpObject_SLightShowParamsBase <read=ReadSLightShowParamsBase>;
+
+string ReadSLightShowParamsBase(SnpObject_SLightShowParamsBase &data)
+{
+    local string eStr = ReadNoteQBKey(data.lightchecksum);
+
+    if (eStr == "")
+        eStr = Str("0x%08x", data.lightchecksum);
+
+    local string paramType = EnumToString(data.type);
+
+    if (paramType == "")
+        paramType = Str("%d", data.type);
+
+    return Str("%s: %s", eStr, paramType);
+}
+
+// ---------------------------------
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} RGBAColor <read=Str("%d, %d, %d, %d", r, g, b, a)>;
+
+typedef struct
+{
+    SnpObject_SLightShowParamsLight common;
+
+    Vec4 a <bgcolor=CL_FLOATS>;
+
+    float unkValueBA <bgcolor=CL_FLOATS>;
+    float hotspotintensity <bgcolor=CL_FLOATS>;
+    float projectorintensity <bgcolor=CL_FLOATS>;
+    float unkValueBD <bgcolor=CL_FLOATS>;
+
+    float unkValueA <bgcolor=CL_FLOATS>;
+    float startradius <bgcolor=CL_FLOATS>;
+    float endradius <bgcolor=CL_FLOATS>;
+    float range <bgcolor=CL_FLOATS>;
+
+    float unk_intensity_maybe <bgcolor=CL_PARSED, comment="volumedensity or flarealpha?">;
+    RGBAColor volumecolor <bgcolor=CL_PARSED>;
+    RGBAColor projectorcolor <bgcolor=CL_PARSED>;
+
+    NOTE_QBKEY lightvolumetype <bgcolor=CL_CHECKSUM>;
+    NOTE_QBKEY projectortype <bgcolor=CL_CHECKSUM>;
+    NOTE_QBKEY unktype <bgcolor=CL_CHECKSUM>;
+
+    int unkA <bgcolor=CL_PARSED>;
+} SnpObject_SLightShowParamsHousing;
+
+// ---------------------------------
+
+typedef struct
+{
+    NOTE_QBKEY type <bgcolor=CL_CHECKSUM>;
+
+    switch (type)
+    {
+        case CSnapshotData:
+            SnpObject_CSnapshotData data;
+            break;
+
+        case SLightShowParamsBase:
+            SnpObject_SLightShowParamsBase data;
+            break;
+
+        case SLightShowParamsLight:
+            SnpObject_SLightShowParamsLight data;
+            break;
+
+        case SLightShowParamsHousing:
+            SnpObject_SLightShowParamsHousing data;
+            break;
+
+        default:
+            Printf("Unhandled SnpObject type %s at %d\n", ReadNoteQBKey(type), FTell());
+            break;
+    }
+} SnpObject <read=ReadSnpObject>;
+
+string ReadSnpObject(SnpObject &obj)
+{
+    local string ret = ReadNoteQBKey(obj.type);
+
+    switch (obj.type)
+    {
+        case CSnapshotData:             return Str("%s - %s", ret, ReadCSnapshotData(obj.data));
+        case SLightShowParamsBase:      return Str("%s - %s", ret, ReadSLightShowParamsBase(obj.data));
+    }
+
+    return ret;
+}
+
+// ---------------------------------
+
+typedef struct
+{
+    // Add to global lookup table
+    if (objectNameTableOffsetsSize < MAX_OBJECT_TABLE_SIZE)
+    {
+        objectNameTableOffsets[objectNameTableOffsetsSize] = FTell();
+        objectNameTableOffsetsSize ++;
+    }
+    else
+    {
+        Printf("Exceeded MAX_OBJECT_TABLE_SIZE, please raise MAX_OBJECT_TABLE_SIZE\n");
+    }
+
+    string name <bgcolor=CL_NAME>;    
+} SnpObjectName <read=Str("%s", name)>;
+
+typedef struct
+{
+    local uint i;
+
+    RelativeOffset unkOffsetB(FTell()) <bgcolor=CL_POINTER>;
+    FSeek(AbsOffset(unkOffsetB));
+    SkipTo(16);
+
+    local uint dataStart = FTell() + (4 * (NumSnpFileObjects));
+
+    for (i=0; i<NumSnpFileObjects; i++)
+    {
+        RelativeOffset offset(dataStart) <bgcolor=CL_POINTER>;
+    }
+
+    for (i=0; i<NumSnpFileObjects; i++)
+    {
+        SnpObjectName objectNames;
+    }
+} SnpObjectNameTable;
+
+// ---------------------------------
+
+typedef struct
+{
+    NOTE_QBKEY fileType <bgcolor=CL_CHECKSUM>;
+    int numSnapshotDatas <bgcolor=CL_SINGLEVALUE>;
+    NumSnpFileObjects = numSnapshotDatas;
+
+    if (!numSnapshotDatas)
+        return;
+
+    FSkip(12);
+
+    // Offset table starts here. Each
+    // entry seems to be offset from
+    // the end of the table.
+
+    local uint dataStart = FTell() + (4 * (numSnapshotDatas)) + 4;
+    dataStart = SnappedNumber(dataStart, 16);
+
+    local int i;
+
+    for (i=0; i<numSnapshotDatas; i++)
+    {
+        RelativeOffset dataOffsets(dataStart) <bgcolor=CL_POINTER>;
+    }
+
+    RelativeOffset objectNameTable(dataStart) <bgcolor=CL_POINTER>;
+
+    local uint old_off = FTell();
+    FSeek(AbsOffset(objectNameTable));
+    SnpObjectNameTable objectNames;
+    FSeek(old_off);
+
+    for (i=0; i<numSnapshotDatas; i++)
+    {
+        curTopLevelObjectIndex = i;
+        FSeek(AbsOffset(dataOffsets[i]));
+        SnpObject object;
+        curTopLevelObjectIndex = -1;
+    }
+} SnpFile;
+
+BigEndian();
+SnpFile snp;

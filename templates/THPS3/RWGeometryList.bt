@@ -1,0 +1,17 @@
+//------------------------------------------------
+// Geometry List data.
+//------------------------------------------------
+
+#define CL_GEOMETRYLIST_VALUE                0x88FF88
+
+typedef struct
+{
+    local uint i;
+    int geometry_count <bgcolor=CL_GEOMETRYLIST_VALUE>;
+    
+    if (geometry_count)
+    {
+        for (i=0; i<geometry_count; i++)
+            RWSection geometry(ST_GeometryList);
+    }
+} RWGeometryList;

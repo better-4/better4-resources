@@ -1,0 +1,30 @@
+//------------------------------------------------
+// Compressed file with CSTR chunks
+//------------------------------------------------
+
+#include "../Common.bt"
+
+typedef struct
+{
+    ushort com_size;
+    ushort uncom_size;
+    
+    ubyte data[com_size];
+} CSTRChunk <read=Str("%d -> %d bytes", com_size, uncom_size)>;
+
+typedef struct
+{
+    char magic[4] <bgcolor=CL_CHECKSUM>;
+    ushort FEED_Magic <bgcolor=CL_PARSED>;
+    ushort version_unk;
+    uint seems_constant;
+    uint total_uncompressed_data_size;
+    
+    while (!FEof())
+    {
+        CSTRChunk chunk;
+    }
+} CSTRFile;
+
+BigEndian();
+CSTRFile file;

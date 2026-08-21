@@ -1,0 +1,103 @@
+//------------------------------------------------
+// THUGPRO .dat file for custom levels.
+//------------------------------------------------
+
+#include "../Common.bt"
+
+enum <ubyte> DatNodeType
+{
+    DAT_EOF = 0,
+    DAT_STRING = 3,
+    DAT_CHECKSUM = 13,
+};
+
+enum <uint> DatNodeChecksumType
+{
+    TPRO_LEVELQBKEY = 0x86A795EE,
+    TPRO_SCRIPTSQBKEY = 0x21C0906B,
+    TPRO_SCNFILEKEY = 0xF7B4CED9,
+    TPRO_TEXFILEKEY = 0x4B2E137C,
+    TPRO_COLFILEKEY = 0x0167348D,
+    TPRO_SCRIPTPRXKEY = 0xD255AE83,
+    TPRO_SCNPRXKEY = 0xAC07D523,
+    TPRO_COLPRXKEY = 0xAEF07A25,
+    
+    TPRO_KEY_LEVEL = 0x78CEF72D,
+    TPRO_KEY_STARTUP_SCRIPT = 0x35D1925B,
+    TPRO_KEY_SETUP_SCRIPT = 0x724E03EE,
+    TPRO_KEY_GOALS_SCRIPT = 0xD094348C,
+};
+
+string ReadDatNodeChecksum(QBKey &checksum)
+{
+    local DatNodeChecksumType sum = (DatNodeChecksumType) checksum.checksum;
+    local string testString = EnumToString(sum);
+    
+    if (Strlen(testString))
+        return testString;
+    
+    return ReadQBKey(checksum);
+};
+
+typedef struct
+{
+    DatNodeType type <bgcolor=CL_SINGLEVALUE>;
+
+    QBKey checksum <bgcolor=CL_POINTER>;
+    
+    switch (type)
+    {
+        case DAT_STRING:
+            string value <bgcolor=CL_PARSED>;
+            break;
+            
+        case DAT_CHECKSUM:
+        
+            switch (checksum.checksum)
+            {
+                default:
+                    QBKey value <bgcolor=CL_CHECKSUM>;
+            }
+            
+            break;
+    }
+} DatNode <read=ReadDatNode>;
+
+string ReadDatNode(DatNode &node)
+{
+    local string s = Str("[%s]", ReadDatNodeChecksum(node.checksum));
+    local string valueString = "";
+    
+    switch (node.type)
+    {
+        case DAT_STRING:
+            valueString = node.value;
+            break;
+        case DAT_CHECKSUM:
+            valueString = ReadDatNodeChecksum(node.value);
+            break;
+    }
+    
+    return Str("%s %s", s, valueString);
+}
+
+typedef struct
+{
+    QBKey key <bgcolor=CL_CHECKSUM, comment="Integrity check?">;
+    uint version_maybe <bgcolor=CL_SINGLEVALUE>;
+    
+    local ubyte TestByte;
+    
+    while (!FEof())
+    {
+        TestByte = ReadByte();
+        
+        if (TestByte == 0)
+            return;
+            
+        DatNode node;
+    }
+} DatFile;
+
+LittleEndian();
+DatFile file;

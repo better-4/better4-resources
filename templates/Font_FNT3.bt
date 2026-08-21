@@ -1,0 +1,8 @@
+//------------------------------------------------
+// FNT3 (THAW) .fnt file.
+//------------------------------------------------
+
+#include "Font.bt"
+
+FntFileVersion = FONT_FNT3;
+FntFile font_file;

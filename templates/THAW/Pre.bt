@@ -1,0 +1,60 @@
+//------------------------------------------------
+// PRX / PRE template.
+// THUG2, THUG4, etc.
+//------------------------------------------------
+
+#include "../Common.bt"
+
+enum <ushort> PREVersion
+{
+    PRE1 = 1,
+    PRE2 = 2,
+    PRE3 = 3
+};
+
+local PREVersion currentPreVersion;
+
+typedef struct
+{
+    uint uncompressedSize;
+    uint compressedSize;
+    uint nameLength;
+    
+    if (currentPreVersion == PRE3)
+        QBKey checksum;
+    
+    char name[nameLength];
+    
+    if (compressedSize == 0)
+        ubyte data[uncompressedSize] <bgcolor=0xAAAAAA>;
+    else if (compressedSize < uncompressedSize)
+        ubyte data[compressedSize] <bgcolor=0xAAAAAA>;
+    else
+        ubyte data[uncompressedSize] <bgcolor=0xAAAAAA>;
+
+    // Data padded to 4 byte boundary.
+    SkipTo(4);
+        
+} PREFileEntry <read=Str("%s - Com: %d, Uncom: %d", name, compressedSize, uncompressedSize)>;
+
+typedef struct
+{
+    uint filesize;
+    PREVersion version;
+    currentPreVersion = version;
+    
+    if (version != PRE2 && version != PRE3)
+    {
+        Printf("PRE version %d not supported.", version);
+        return;
+    }
+        
+    ushort magic;
+    uint fileCount;
+    
+    if (fileCount)
+        PREFileEntry entry[fileCount] <optimize=false>;
+} PREFile;
+
+LittleEndian();
+PREFile file;
